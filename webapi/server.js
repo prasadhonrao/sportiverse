@@ -1,7 +1,12 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import products from './data/products.js';
 
+dotenv.config();
+
 const port = process.env.port || 5000;
+const env = process.env.NODE_ENV;
+
 const app = express();
 
 app.get('/', (req, res) => {
@@ -18,5 +23,5 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Sai Sports Web API is running on port ${port}`);
+  console.log(`Server running in ${env} mode on port ${port}`);
 });
