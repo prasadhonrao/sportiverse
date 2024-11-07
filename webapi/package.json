@@ -1,0 +1,12 @@
+{
+  "name": "sai-sports-web-api",
+  "version": "1.0.0",
+  "description": "Web API for Sai Sport eCommerce platform",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Prasad Honrao",
+  "license": "MIT"
+}
