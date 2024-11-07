@@ -7,7 +7,7 @@ function App() {
       <Header />
       <main>
         <Container>
-          <h1>Welcome to Sai Sports Shop</h1>
+          <h1>Welcome to Sai Sports</h1>
         </Container>
       </main>
       <Footer />
