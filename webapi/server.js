@@ -1,13 +1,18 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import colors from 'colors';
 import products from './data/products.js';
+import connectDB from './config/db.js';
 
 dotenv.config();
 
 const port = process.env.port || 5000;
-const env = process.env.NODE_ENV;
+const env = process.env.node_env;
 
 const app = express();
+
+// Connect to MongoDB
+connectDB();
 
 app.get('/', (req, res) => {
   res.send('Sai Sports Web API is running');
@@ -23,5 +28,5 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running in ${env} mode on port ${port}`);
+  console.log(`Server running in ${env} mode on port ${port}`.yellow.bold);
 });
