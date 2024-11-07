@@ -8,7 +8,7 @@ const Header = () => {
     <header>
       <Navbar bg="primary" variant="dark" expand="md" collapseOnSelect>
         <Container>
-          <Navbar.Brand href="#">
+          <Navbar.Brand href="/">
             <img src={logo} alt="Sai Sports" />
             Sai Sports
           </Navbar.Brand>
