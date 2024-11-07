@@ -8,5 +8,8 @@
     "start": "node server.js"
   },
   "author": "Prasad Honrao",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
 }
