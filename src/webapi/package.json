@@ -1,7 +1,7 @@
 {
-  "name": "sai-sports-web-api",
+  "name": "sportiverse-web-api",
   "version": "1.0.0",
-  "description": "Web API for Sai Sport eCommerce platform",
+  "description": "Sportiverse Web API",
   "main": "server.js",
   "type": "module",
   "scripts": {
