@@ -82,21 +82,25 @@ const productSchema = new mongoose.Schema(
       max: 5,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toObject: { virtuals: true },
+    toJSON: { virtuals: true },
+  }
 );
 
 productSchema.virtual('averageRating').get(function () {
-  if (this.ratings.length === 0) return 0;
-  const sum = this.ratings.reduce((acc, rating) => acc + rating.rating, 0);
-  return sum / this.ratings.length;
+  if (!this.ratings?.length) return 0;
+  const sum = this.ratings?.reduce((acc, rating) => acc + rating.rating, 0) || 0;
+  return sum / this.ratings?.length || 0;
 });
 
 productSchema.virtual('totalReviews').get(function () {
-  return this.reviews.length;
+  return this.reviews?.length || 0;
 });
 
 productSchema.virtual('totalRatings').get(function () {
-  return this.ratings.length;
+  return this.ratings?.length || 0;
 });
 
 const Product = mongoose.model('Product', productSchema);

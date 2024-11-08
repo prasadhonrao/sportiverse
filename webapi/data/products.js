@@ -1,5 +1,7 @@
 const products = [
   {
+    _id: '5d7a514b5d2c12c7449be046',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'Airpods Wireless Bluetooth Headphones',
     image: '/images/airpods.jpg',
     description:
@@ -8,9 +10,18 @@ const products = [
     category: 'Electronics',
     price: 89.99,
     countInStock: 10,
+    reviews: [
+      {
+        user: '3c8a1d5b0190b214360dc003',
+        title: 'Awesome',
+        comment: 'Awesome product, I love it!',
+      },
+    ],
     rating: 4.5,
   },
   {
+    _id: '5d725a037b292f5f8ceff787',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'iPhone 11 Pro 256GB Memory',
     image: '/images/phone.jpg',
     description:
@@ -22,6 +33,8 @@ const products = [
     rating: 4.0,
   },
   {
+    _id: '5d725a1b7b292f5f8ceff788',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'Cannon EOS 80D DSLR Camera',
     image: '/images/camera.jpg',
     description:
@@ -33,6 +46,8 @@ const products = [
     rating: 3,
   },
   {
+    _id: '5d726d107b292f5f8ceff796',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'Sony Playstation 4 Pro White Version',
     image: '/images/playstation.jpg',
     description:
@@ -44,6 +59,8 @@ const products = [
     rating: 5,
   },
   {
+    _id: '5d726d917b292f5f8ceff797',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'Logitech G-Series Gaming Mouse',
     image: '/images/mouse.jpg',
     description:
@@ -55,6 +72,8 @@ const products = [
     rating: 3.5,
   },
   {
+    _id: '5d726e0b7b292f5f8ceff798',
+    user: '1d7a514b5d2c12c7449be001',
     name: 'Amazon Echo Dot 3rd Generation',
     image: '/images/alexa.jpg',
     description:
