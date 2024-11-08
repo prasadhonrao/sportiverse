@@ -1,10 +1,15 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import colors from 'colors';
-import products from './data/products.js';
+
 import connectDB from './config/db.js';
+
+// Routes
 import homeRoutes from './routes/homeRoutes.js';
 import productRoutes from './routes/productRoutes.js';
+
+// Middlewares
+import { errorHandler } from './middlewares/errorHandler.js';
 
 dotenv.config();
 
@@ -19,6 +24,9 @@ connectDB();
 // Custom routes
 app.use('/', homeRoutes);
 app.use('/api/products', productRoutes);
+
+// Custom middlewares
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server running in ${env} mode on port ${port}`.yellow.bold);
