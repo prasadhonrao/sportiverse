@@ -10,7 +10,7 @@ export const productsApiSlice = apiSlice.injectEndpoints({
       providesTags: ['Product'],
       keepUnusedDataFor: 5,
     }),
-    getProductById: builder.query({
+    getProductDetails: builder.query({
       query: (id) => ({
         url: `${PRODUCTS_URL}/${id}`,
       }),
@@ -20,4 +20,4 @@ export const productsApiSlice = apiSlice.injectEndpoints({
   }),
 });
 
-export const { useGetProductsQuery, useGetProductByIdQuery } = productsApiSlice;
+export const { useGetProductsQuery, useGetProductDetailsQuery } = productsApiSlice;

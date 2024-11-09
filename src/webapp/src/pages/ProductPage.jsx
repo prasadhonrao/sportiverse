@@ -3,11 +3,11 @@ import { useParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Row, Col, Image, ListGroup, Card, Button } from 'react-bootstrap';
 import Rating from '../components/Rating';
-import { useGetProductByIdQuery } from '../slices/productsApiSlice';
+import { useGetProductDetailsQuery } from '../slices/productsApiSlice';
 
 const ProductPage = () => {
   const { id } = useParams();
-  const { data: product, isLoading = false, isError = false } = useGetProductByIdQuery(id);
+  const { data: product, isLoading = false, isError = false } = useGetProductDetailsQuery(id);
 
   return (
     <>
