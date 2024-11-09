@@ -13,8 +13,8 @@ import { errorHandler } from './middlewares/errorHandler.js';
 
 dotenv.config();
 
-const port = process.env.port || 5000;
-const env = process.env.node_env;
+const port = process.env.PORT || 5000;
+const env = process.env.NODE_ENV;
 
 const app = express();
 
