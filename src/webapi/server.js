@@ -7,6 +7,7 @@ import connectDB from './config/db.js';
 // Routes
 import homeRoutes from './routes/homeRoutes.js';
 import productRoutes from './routes/productRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 // Middlewares
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -24,6 +25,7 @@ connectDB();
 // Custom routes
 app.use('/', homeRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/users', userRoutes);
 
 // Custom middlewares
 app.use(errorHandler);
