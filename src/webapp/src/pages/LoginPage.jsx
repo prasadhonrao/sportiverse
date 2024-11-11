@@ -5,7 +5,7 @@ import { Form, Button, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import FormContainer from '../components/FormContainer';
 import { useLoginMutation } from '../slices/usersApiSlice';
-import { setCredentials } from '../slices/authSlice';
+import { addUserToLocalStorage } from '../slices/authSlice';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ const LoginPage = () => {
     try {
       e.preventDefault();
       const res = await login({ email, password }).unwrap();
-      dispatch(setCredentials({ ...res }));
+      dispatch(addUserToLocalStorage({ ...res }));
       navigate(redirect);
     } catch (error) {
       toast.error(error?.data?.message);
