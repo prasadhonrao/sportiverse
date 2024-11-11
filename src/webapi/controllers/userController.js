@@ -1,3 +1,5 @@
+import asyncHandler from '../middlewares/asyncHandler.js';
+
 // @desc    Authenticate user and return JWT token
 // @route   POST /api/users/login
 // @access  Public
