@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import asyncHandler from '../middlewares/asyncHandler.js';
 import User from '../models/userModel.js';
+import generateJwt from '../utils/generateJwt.js';
 
 // @desc    Authenticate user and return JWT token
 // @route   POST /api/users/login
@@ -10,18 +11,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
 
   if (user && (await user.matchPassword(password))) {
-    // Create JWT Token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
-
-    // Set JWT as HTTP-only cookie
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    });
+    generateJwt(res, user._id);
 
     return res.status(200).json({
       _id: user._id,
@@ -39,7 +29,30 @@ const loginUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  res.status(200).json({ message: 'Register route' });
+  const { name, email, password } = req.body;
+
+  // Check if user with the same email already exists in the database
+  const userExists = await User.findOne({ email });
+  if (userExists) {
+    res.status(400);
+    throw new Error('User already exists');
+  }
+
+  const user = await User.create({ name, email, password });
+
+  if (user) {
+    generateJwt(res, user._id);
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      isAdmin: user.isAdmin,
+    });
+  } else {
+    res.status(400);
+    throw new Error('Invalid user data');
+  }
 });
 
 // @desc    Log user out / clear cookie
