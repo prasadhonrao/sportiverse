@@ -19,6 +19,9 @@ const env = process.env.NODE_ENV;
 
 const app = express();
 
+app.use(express.json()); // Body parser
+app.use(express.urlencoded({ extended: true })); // URL parser
+
 // Connect to MongoDB
 connectDB();
 
