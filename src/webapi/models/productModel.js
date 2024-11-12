@@ -20,12 +20,10 @@ const productSchema = new mongoose.Schema(
       maxlength: [1000, 'Product description must be between 10 and 1000 characters'],
       trim: true,
     },
-    image: [
-      {
-        type: String,
-        description: String,
-      },
-    ],
+    image: {
+      type: String,
+      description: String,
+    },
     brand: {
       type: String,
       required: [true, 'Please provide a product brand'],
