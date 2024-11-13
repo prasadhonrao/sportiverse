@@ -20,7 +20,7 @@ import PaymentPage from './pages/PaymentPage';
 import PlaceOrderPage from './pages/PlaceOrderPage';
 import OrderPage from './pages/OrderPage';
 import ProfilePage from './pages/ProfilePage';
-import OrderListPage from './pages/OrderListPage';
+import OrderListPage from './pages/admin/OrderListPage';
 
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
