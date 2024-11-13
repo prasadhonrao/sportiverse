@@ -35,7 +35,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 
 // PayPal routes
-app.get('/api/config/paypal', (req, res) => res.send(process.env.PAYPAL_CLIENT_ID));
+app.get('/api/config/paypal', (req, res) => res.send({ clientId: process.env.PAYPAL_CLIENT_ID }));
 
 // Custom middlewares
 app.use(errorHandler);
