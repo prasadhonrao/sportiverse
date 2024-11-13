@@ -5,13 +5,22 @@ import { FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import Message from '../../components/Message';
 import Loader from '../../components/Loader';
-import { useGetProductsQuery } from '../../slices/productsApiSlice';
+import { useGetProductsQuery, useCreateProductMutation } from '../../slices/productsApiSlice';
+import { toast } from 'react-toastify';
 
 const ProductListPage = () => {
   const { data, isLoading, error, refetch } = useGetProductsQuery();
+  const [createProduct, { isLoading: loadingCreate }] = useCreateProductMutation();
 
-  const createProductHandler = () => {
-    console.log('Create Product');
+  const createProductHandler = async () => {
+    if (window.confirm('Are you sure you want to create a new product?')) {
+      try {
+        await createProduct();
+        refetch();
+      } catch (err) {
+        toast.error(err?.data?.message || err.error);
+      }
+    }
   };
 
   const deleteHandler = (id) => {
@@ -30,6 +39,8 @@ const ProductListPage = () => {
           </Button>
         </Col>
       </Row>
+
+      {loadingCreate && <Loader />}
 
       {isLoading ? (
         <Loader />
