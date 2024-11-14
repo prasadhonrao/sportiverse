@@ -124,9 +124,16 @@ const getUsers = asyncHandler(async (req, res) => {
 
 // @desc    Get user by ID
 // @route   GET /api/users/:id
-// @access  Private / Admin
+// @access  Private/Admin
 const getUserById = asyncHandler(async (req, res) => {
-  res.status(200).json({ message: 'Get user by ID route' });
+  const user = await User.findById(req.params.id).select('-password');
+
+  if (user) {
+    res.json(user);
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
 });
 
 // @desc    Update user
