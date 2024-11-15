@@ -10,14 +10,6 @@ const products = [
     category: 'Electronics',
     price: 89.99,
     countInStock: 10,
-    reviews: [
-      {
-        user: '3c8a1d5b0190b214360dc003',
-        title: 'Awesome',
-        comment: 'Awesome product, I love it!',
-      },
-    ],
-    rating: 4.5,
   },
   {
     _id: '5d725a037b292f5f8ceff787',
@@ -30,7 +22,15 @@ const products = [
     category: 'Electronics',
     price: 599.99,
     countInStock: 7,
-    rating: 4.0,
+    reviews: [
+      {
+        user: '3c8a1d5b0190b214360dc003',
+        name: 'Mili Jha',
+        comment: 'Awesome product, I love it!',
+        rating: 5,
+      },
+    ],
+    rating: 5,
   },
   {
     _id: '5d725a1b7b292f5f8ceff788',
