@@ -70,7 +70,7 @@ const ProductPage = () => {
                   <h3>{product.name}</h3>
                 </ListGroup.Item>
                 <ListGroup.Item>
-                  <Rating value={product.rating} text={`${product.numReviews} reviews`} />
+                  <Rating value={product.rating} text={`${product.totalReviews} reviews`} />
                 </ListGroup.Item>
                 <ListGroup.Item>Price: ${product.price}</ListGroup.Item>
                 <ListGroup.Item>Description: {product.description}</ListGroup.Item>
