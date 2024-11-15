@@ -1,18 +1,29 @@
 import asyncHandler from '../middlewares/asyncHandler.js';
 import Product from '../models/productModel.js';
 
-// desc   Get all products
-// route  GET /api/products
-// access Public
+// @desc    Fetch all products
+// @route   GET /api/products
+// @access  Public
 const getProducts = asyncHandler(async (req, res) => {
-  const pageSize = 3;
+  const pageSize = process.env.PAGINATION_LIMIT;
   const page = Number(req.query.pageNumber) || 1;
-  const count = await Product.countDocuments();
 
-  const products = await Product.find({})
+  const keyword = req.query.keyword
+    ? {
+        // regular expression on product name field
+        name: {
+          $regex: req.query.keyword,
+          $options: 'i', // case insensitive
+        },
+      }
+    : {};
+
+  const count = await Product.countDocuments({ ...keyword });
+  const products = await Product.find({ ...keyword })
     .limit(pageSize)
     .skip(pageSize * (page - 1));
-  res.status(200).json({ products, page, pages: Math.ceil(count / pageSize) });
+
+  res.json({ products, page, pages: Math.ceil(count / pageSize) });
 });
 
 // desc   Get product by id
