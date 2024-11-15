@@ -1,15 +1,22 @@
 import React from 'react';
-
+import { useParams } from 'react-router-dom';
 import { Table, Button, Row, Col } from 'react-bootstrap';
 import { FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-import Message from '../../components/Message';
-import Loader from '../../components/Loader';
-import { useGetProductsQuery, useCreateProductMutation, useDeleteProductMutation } from '../../slices/productsApiSlice';
 import { toast } from 'react-toastify';
 
+import Message from '../../components/Message';
+import Loader from '../../components/Loader';
+import Paginate from '../../components/Paginate';
+
+import { useGetProductsQuery, useCreateProductMutation, useDeleteProductMutation } from '../../slices/productsApiSlice';
+
 const ProductListPage = () => {
-  const { data, isLoading, error, refetch } = useGetProductsQuery();
+  const { pageNumber } = useParams();
+
+  const { data, isLoading, error, refetch } = useGetProductsQuery({
+    pageNumber,
+  });
   const [createProduct, { isLoading: loadingCreate }] = useCreateProductMutation();
 
   const createProductHandler = async () => {
@@ -90,6 +97,7 @@ const ProductListPage = () => {
               ))}
             </tbody>
           </Table>
+          <Paginate pages={data.pages} page={data.page} isAdmin={true} />
         </>
       )}
     </>
