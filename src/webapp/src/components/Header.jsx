@@ -8,6 +8,7 @@ import logo from './../assets/logo/logo.png';
 import SearchBox from './SearchBox';
 import { useLogoutMutation } from '../slices/usersApiSlice';
 import { removeUserFromLocalStorage } from '../slices/authSlice';
+import { resetCart } from '../slices/cartSlice';
 
 const Header = () => {
   const { cartItems } = useSelector((state) => state.cart);
@@ -22,6 +23,7 @@ const Header = () => {
     try {
       await logout().unwrap();
       dispatch(removeUserFromLocalStorage());
+      dispatch(resetCart());
       navigate('/');
     } catch (error) {
       console.error(error);
