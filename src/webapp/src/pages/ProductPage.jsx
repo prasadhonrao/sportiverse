@@ -8,6 +8,7 @@ import { useGetProductDetailsQuery, useCreateReviewMutation } from '../slices/pr
 import Rating from '../components/Rating';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
+import Meta from '../components/Meta';
 import { addToCart } from '../slices/cartSlice';
 
 const ProductPage = () => {
@@ -58,6 +59,7 @@ const ProductPage = () => {
         <Message variant="danger">{error?.data?.message || error.error}</Message>
       ) : (
         <>
+          <Meta title={product.name} description={product.description} />
           <Row>
             <Col md={6}>
               <Image src={product.image} alt={product.name} fluid />
