@@ -1,11 +1,12 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import { Row, Col } from 'react-bootstrap';
 import Product from '../components/Product';
 import { useGetProductsQuery } from '../slices/productsApiSlice';
 
 const HomePage = () => {
-  const { data, isLoading = false, isError = false } = useGetProductsQuery();
-  console.log(data);
+  const { pageNumber = 1 } = useParams();
+  const { data, isLoading = false, isError = false } = useGetProductsQuery({ pageNumber });
   return (
     <>
       {isLoading && <h2>Loading...</h2>}
