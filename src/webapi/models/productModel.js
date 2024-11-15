@@ -52,22 +52,28 @@ const productSchema = new mongoose.Schema(
     },
     reviews: [
       {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          required: [true, 'User id is required to add a review'],
-          ref: 'User',
-        },
-        title: {
+        name: {
           type: String,
-          required: [true, 'Please provide a review title'],
-          minlength: [3, 'Review title must be between 3 and 100 characters'],
-          maxlength: [100, 'Review title must be between 3 and 100 characters'],
+          required: [true, 'Please provide a review name'],
+          minlength: [3, 'Review name must be between 3 and 100 characters'],
+          maxlength: [100, 'Review name must be between 3 and 100 characters'],
           trim: true,
+        },
+        rating: {
+          type: Number,
+          required: [true, 'Please provide a review rating'],
+          min: [0, 'Review rating must be between 0 and 5'],
+          max: [5, 'Review rating must be between 0 and 5'],
         },
         comment: {
           type: String,
           minlength: [3, 'Review comment must be between 3 and 10000 characters'],
           maxlength: [10000, 'Review comment must be between 3 and 10000 characters'],
+        },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: [true, 'User id is required to add a review'],
+          ref: 'User',
         },
       },
       { timestamps: true },
