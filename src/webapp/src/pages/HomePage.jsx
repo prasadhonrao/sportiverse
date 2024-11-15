@@ -6,14 +6,17 @@ import Loader from '../components/Loader';
 import Message from '../components/Message';
 import { useGetProductsQuery } from '../slices/productsApiSlice';
 import Paginate from '../components/Paginate';
+import ProductCarousel from '../components/ProductCarousel ';
 
 const HomePage = () => {
   const { pageNumber, keyword } = useParams();
   const { data, isLoading, error = false } = useGetProductsQuery({ keyword, pageNumber });
   return (
     <>
-      {keyword && (
-        <Link to="/" className="btn btn-light mt-4 mb-4">
+      {!keyword ? (
+        <ProductCarousel />
+      ) : (
+        <Link to="/" className="btn btn-light mb-4">
           Go Back
         </Link>
       )}
