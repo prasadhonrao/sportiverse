@@ -17,12 +17,12 @@ const ProductPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const [qty, setQty] = useState(1);
+  const [quantity, setQuantity] = useState(1);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
 
   const addToCartHandler = () => {
-    dispatch(addToCart({ ...product, qty }));
+    dispatch(addToCart({ ...product, quantity }));
     navigate('/cart');
   };
 
@@ -100,7 +100,11 @@ const ProductPage = () => {
                       <Row>
                         <Col>Qty</Col>
                         <Col>
-                          <Form.Control as="select" value={qty} onChange={(e) => setQty(Number(e.target.value))}>
+                          <Form.Control
+                            as="select"
+                            value={quantity}
+                            onChange={(e) => setQuantity(Number(e.target.value))}
+                          >
                             {[...Array(product.countInStock).keys()].map((x) => (
                               <option key={x + 1} value={x + 1}>
                                 {x + 1}
