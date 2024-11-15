@@ -53,6 +53,7 @@ const RegisterPage = () => {
           <Form.Control
             type="text"
             placeholder="Enter name"
+            required
             value={name}
             onChange={(e) => setName(e.target.value)}
           ></Form.Control>
@@ -62,6 +63,7 @@ const RegisterPage = () => {
           <Form.Control
             type="email"
             placeholder="Enter email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           ></Form.Control>
@@ -71,6 +73,7 @@ const RegisterPage = () => {
           <Form.Control
             type="password"
             placeholder="Enter password"
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           ></Form.Control>
@@ -80,6 +83,7 @@ const RegisterPage = () => {
           <Form.Control
             type="password"
             placeholder="Confirm password"
+            required
             value={confirmedPassword}
             onChange={(e) => setConfirmedPassword(e.target.value)}
           ></Form.Control>
