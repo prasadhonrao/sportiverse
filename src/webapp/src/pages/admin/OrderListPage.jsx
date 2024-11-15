@@ -8,7 +8,6 @@ import { Link } from 'react-router-dom';
 
 const OrderListPage = () => {
   const { data: orders, isLoading, error } = useGetOrdersQuery();
-  console.log(orders);
 
   return (
     <>
