@@ -131,17 +131,14 @@ const ProductPage = () => {
               <h2>Reviews</h2>
               {product.reviews.length === 0 && <Message>No Reviews</Message>}
               <ListGroup variant="flush">
-                {product.reviews.map(
-                  (review) => (
-                    console.log(review),
-                    (
-                      <ListGroup.Item key={review._id}>
-                        <strong>{review.name}</strong>
-                        <Rating value={review.rating} />
-                        <p>{review.createdAt.substring(0, 10)}</p>
-                        <p>{review.comment}</p>
-                      </ListGroup.Item>
-                    )
+                {product.reviews.map((review) =>
+                  console.log(review)(
+                    <ListGroup.Item key={review._id}>
+                      <strong>{review.name}</strong>
+                      <Rating value={review.rating} />
+                      <p>{review.createdAt.substring(0, 10)}</p>
+                      <p>{review.comment}</p>
+                    </ListGroup.Item>
                   )
                 )}
                 <ListGroup.Item>
