@@ -12,7 +12,7 @@ export const authSlice = createSlice({
     },
     removeUserFromLocalStorage: (state, action) => {
       state.userInfo = null;
-      localStorage.removeItem('userInfo');
+      localStorage.clear();
     },
   },
 });
