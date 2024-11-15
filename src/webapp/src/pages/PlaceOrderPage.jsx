@@ -4,7 +4,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { Row, Col, ListGroup, Image, Card, Button } from 'react-bootstrap';
 
+import Message from '../components/Message';
 import CheckoutSteps from '../components/CheckoutSteps';
+import Loader from '../components/Loader';
 
 import { useCreateOrderMutation } from '../slices/ordersApiSlice';
 import { clearCartItems } from '../slices/cartSlice';
@@ -25,7 +27,7 @@ const PlaceOrderPage = () => {
     }
   }, [shippingAddress, paymentMethod, navigate]);
 
-  const [createOrder] = useCreateOrderMutation();
+  const [createOrder, { isLoading, error }] = useCreateOrderMutation();
 
   const placeOrderHandler = async (e) => {
     try {
@@ -44,7 +46,6 @@ const PlaceOrderPage = () => {
       dispatch(clearCartItems());
       navigate(`/orders/${res._id}`);
     } catch (error) {
-      console.log(error);
       toast.error(error?.data?.message);
     }
   };
@@ -126,6 +127,7 @@ const PlaceOrderPage = () => {
                   <Col>${cart.totalPrice}</Col>
                 </Row>
               </ListGroup.Item>
+              <ListGroup.Item>{error && <Message variant="danger">{error.data.message}</Message>}</ListGroup.Item>
               <ListGroup.Item>
                 <Button
                   type="button"
@@ -135,6 +137,7 @@ const PlaceOrderPage = () => {
                 >
                   Place Order
                 </Button>
+                {isLoading && <Loader />}
               </ListGroup.Item>
             </ListGroup>
           </Card>
