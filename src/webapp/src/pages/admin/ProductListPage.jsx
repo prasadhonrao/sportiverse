@@ -1,8 +1,7 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Table, Button, Row, Col } from 'react-bootstrap';
 import { FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 import Message from '../../components/Message';
