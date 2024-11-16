@@ -1,0 +1,158 @@
+{
+	"info": {
+		"_postman_id": "9f8ce445-ab61-4dc6-9a71-7e508f8ce49a",
+		"name": "Orders",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1811327"
+	},
+	"item": [
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Get Order By Id",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Update Order To Delivered",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/66046a0fde01a22121122bb2/deliver",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"66046a0fde01a22121122bb2",
+								"deliver"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Order",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders/8ecfd8b6-e600-4498-b3e5-91e233c4a383",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"8ecfd8b6-e600-4498-b3e5-91e233c4a383"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Get Order By Id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/orders/456479d5-9721-4ddb-870d-c3843b5a6e31",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						"456479d5-9721-4ddb-870d-c3843b5a6e31"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Logged In Users Orders",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/orders/myorders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						"myorders"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update Order To Paid",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/orders/66046a0fde01a22121122bb2/pay",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders",
+						"66046a0fde01a22121122bb2",
+						"pay"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Order",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": 2,\n  \"orderDate\": \"2023-07-01\",\n  \"orderAmount\": 99.0,\n  \"orderLineItemModelList\": [\n    {\n      \"productId\": \"PROD-001\",\n      \"unitPrice\": 10.0,\n      \"quantity\": 2,\n      \"discount\": 0.0\n    },\n    {\n      \"productId\": \"PROD-002\",\n      \"unitPrice\": 90.0,\n      \"quantity\": 1,\n      \"discount\": 0.1\n    }\n  ]\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/orders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"orders"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

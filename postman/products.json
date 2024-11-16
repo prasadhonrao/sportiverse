@@ -1,0 +1,123 @@
+{
+	"info": {
+		"_postman_id": "cfbe190f-97b3-40da-888c-4f23c63c0dbc",
+		"name": "Products",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1811327"
+	},
+	"item": [
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Delete Product",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products/6602d2821cf420491f3c0710",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products",
+								"6602d2821cf420491f3c0710"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Example Product\",\n  \"description\": \"This is an example product.\",\n  \"price\": 100.0,\n  \"quantity\": 100,\n  \"status\": \"\",\n  \"inventoryStatus\": \"\",\n  \"seo\": {\n    \"metaTitle\": \"Example Product - Electronics\",\n    \"metaDescription\": \"This is an example product in the Electronics category.\",\n    \"slug\": \"example-product\"\n  },\n  \"categories\": [],\n  \"specifications\": [],\n  \"images\": [],\n  \"variants\": [],\n  \"relatedProducts\":[],\n  \"reviews\":[],\n  \"ratings\":[],\n  \"aggregateRating\": {},\n  \"agreegateReview\" :{}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Example Product\",\n  \"description\": \"This is an example product.\",\n  \"price\": 100.0,\n  \"quantity\": 100,\n  \"status\": \"\",\n  \"inventoryStatus\": \"\",\n  \"seo\": {\n    \"metaTitle\": \"Example Product - Electronics\",\n    \"metaDescription\": \"This is an example product in the Electronics category.\",\n    \"slug\": \"example-product\"\n  },\n  \"categories\": [],\n  \"specifications\": [],\n  \"images\": [],\n  \"variants\": [],\n  \"relatedProducts\":[],\n  \"reviews\":[],\n  \"ratings\":[],\n  \"aggregateRating\": {},\n  \"agreegateReview\" :{}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/products/6602d2821cf420491f3c0710",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products",
+								"6602d2821cf420491f3c0710"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Get Products",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/products",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"products"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Product",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}:{{port}}/api/products/6602d2821cf420491f3c0710",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"api",
+						"products",
+						"6602d2821cf420491f3c0710"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

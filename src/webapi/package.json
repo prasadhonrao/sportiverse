@@ -1,0 +1,31 @@
+{
+  "name": "sportiverse-web-api",
+  "version": "1.0.0",
+  "description": "Sportiverse Web API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "data:import": "node seeder.js",
+    "data:destroy": "node seeder.js -d",
+    "build": "npm install",
+    "test": "jest"
+  },
+  "author": "Prasad Honrao",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "colors": "^1.4.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.7"
+  }
+}
