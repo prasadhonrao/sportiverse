@@ -1,5 +1,4 @@
 name: WebAPI Lint
-run-name: WebAPI Lint on ${{ github.ref }}
 
 on:
   push:
