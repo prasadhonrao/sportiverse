@@ -1,0 +1,22 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+    - uses: actions/first-interaction@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-message: |
+          🌟 Hi there, and welcome to **Sportiverse**! Thank you for opening your first issue in this repository. Your ideas and contributions help us make this project better for everyone. 🎯 
+          
+          Our team will review your issue as soon as possible. In the meantime, if you have any additional details, feel free to share them here. We're thrilled to have you in the Sportiverse community—let's build something amazing together! 💪
+        pr-message: |
+          🎉 Woohoo, your first pull request for **Sportiverse**! Thank you for taking the time to contribute—we're so excited to see your work. 🚀
+          
+          Our team will review your PR soon. If you have any questions, need clarification, or want feedback, don't hesitate to ask. Welcome to the Sportiverse family—together, we're creating something awesome! 🙌
