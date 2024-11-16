@@ -1,4 +1,3 @@
-import jwt from 'jsonwebtoken';
 import asyncHandler from '../middlewares/asyncHandler.js';
 import User from '../models/userModel.js';
 import generateJwt from '../utils/generateJwt.js';
