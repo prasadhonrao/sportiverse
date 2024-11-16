@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "data:import": "node seeder.js",
     "data:destroy": "node seeder.js -d",
-    "build": "npm install"
+    "build": "npm install",
+    "test": "jest"
   },
   "author": "Prasad Honrao",
   "license": "MIT",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "dotenv": "^16.4.5",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7"
   }
 }
