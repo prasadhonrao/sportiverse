@@ -10,7 +10,8 @@
     "data:import": "node seeder.js",
     "data:destroy": "node seeder.js -d",
     "build": "npm install",
-    "test": "jest"
+    "test": "jest",
+    "lint": "eslint ."
   },
   "author": "Prasad Honrao",
   "license": "MIT",
@@ -24,7 +25,9 @@
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.15.0",
     "dotenv": "^16.4.5",
+    "eslint": "^9.15.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.7"
   }
