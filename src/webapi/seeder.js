@@ -42,7 +42,7 @@ const destroyData = async () => {
     console.log('Sample data deleted!'.yellow.bold);
     process.exit();
   } catch (error) {
-    console.log('Error occurred while deleting data: ${error.message}'.red.bold);
+    console.log(`Error occurred while deleting data: ${error.message}`.red.bold);
     process.exit(1);
   }
 };
