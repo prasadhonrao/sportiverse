@@ -1,0 +1,27 @@
+name: WebAPI Test
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'src/webapi/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapi
+
+      - name: Run tests
+        run: npm test --prefix src/webapi
