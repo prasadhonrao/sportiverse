@@ -7,8 +7,8 @@ on:
     paths:
       - 'src/webapi/**'
   workflow_dispatch: # Manually trigger the workflow
-  schedule:
-    - cron: '0 0 * * *' # Run every day at midnight
+  # schedule:
+  #   - cron: '0 0 * * *' # Run every day at midnight
 
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
