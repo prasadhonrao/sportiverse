@@ -13,6 +13,10 @@ RUN npm install
 # Copy the rest of the application code to the working directory
 COPY . .
 
+# Set build-time environment variables
+ARG REACT_APP_SPORTIVERSE_BASE_API_URI
+ENV REACT_APP_SPORTIVERSE_BASE_API_URI=${REACT_APP_SPORTIVERSE_BASE_API_URI}
+
 # Stage 2: Production
 FROM node:20-alpine AS production
 
