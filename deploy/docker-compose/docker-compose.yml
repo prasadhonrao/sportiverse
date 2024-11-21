@@ -6,7 +6,7 @@ services:
     ports:
       - '${WEBAPP_PORT}:3000'
     environment:
-      - REACT_APP_SPORTIVERSE_BASE_API_URI={REACT_APP_SPORTIVERSE_BASE_API_URI} + ':' + ${WEBAPP_PORT}
+      - REACT_APP_SPORTIVERSE_BASE_API_URI={REACT_APP_SPORTIVERSE_BASE_API_URI} + ':' + ${PORT}
     depends_on:
       - webapi
   webapi:

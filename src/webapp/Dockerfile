@@ -17,20 +17,15 @@ COPY . .
 ARG REACT_APP_SPORTIVERSE_BASE_API_URI
 ENV REACT_APP_SPORTIVERSE_BASE_API_URI=${REACT_APP_SPORTIVERSE_BASE_API_URI}
 
+RUN npm run build
+
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM nginx:1.25-alpine AS production
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
+# Copy built assets from the build stage to Nginx's static content directory
+COPY --from=build /usr/src/app/build /usr/share/nginx/html
 
-# Copy only the necessary files from the build stage
-COPY --from=build /usr/src/app .
+# Expose the default Nginx port
+EXPOSE 80
 
-# Install only production dependencies
-RUN npm install --only=production
-
-# Expose the port the app runs on
-EXPOSE 3000
-
-# Define the command to run the application
-CMD ["npm", "start"]
+CMD ["nginx", "-g", "daemon off;"]
