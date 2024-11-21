@@ -129,7 +129,7 @@ jobs:
           name: coverage-report
           path: src/webapp/coverage
 
-  dozkerize:
+  dockerize:
     runs-on: ubuntu-latest
     needs: code-coverage
 
