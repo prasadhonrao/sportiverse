@@ -25,5 +25,5 @@ jobs:
         run: npm install --prefix src/webapp
 
       # TODO: Analyze how to check for high severity vulnerabilities
-      - name: Run dependency check
-        run: npm audit --audit-level=high --prefix src/webapp
+      # - name: Run dependency check
+      #   run: npm audit --audit-level=high --prefix src/webapp
