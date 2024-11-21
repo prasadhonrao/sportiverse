@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Container, Row, Col } from 'react-bootstrap';
 
 const FormContainer = ({ children }) => {
@@ -14,3 +15,7 @@ const FormContainer = ({ children }) => {
 };
 
 export default FormContainer;
+
+FormContainer.propTypes = {
+  children: PropTypes.node.isRequired,
+};

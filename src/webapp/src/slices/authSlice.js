@@ -10,6 +10,7 @@ export const authSlice = createSlice({
       state.userInfo = action.payload;
       localStorage.setItem('userInfo', JSON.stringify(action.payload));
     },
+    // eslint-disable-next-line no-unused-vars
     removeUserFromLocalStorage: (state, action) => {
       state.userInfo = null;
       localStorage.clear();
