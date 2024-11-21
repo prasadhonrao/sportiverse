@@ -6,6 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
+      - '.github/workflows/webapi-dockerize.yml'
   workflow_dispatch:
 
 env:

@@ -6,6 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
+      - '.github/workflows/webapi-security.yml'
   workflow_dispatch:
 
 jobs:

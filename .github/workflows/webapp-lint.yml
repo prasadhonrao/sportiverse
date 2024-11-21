@@ -6,6 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapp/**'
+      - '.github/workflows/webapp-lint.yml'
   workflow_dispatch:
 
 jobs:
