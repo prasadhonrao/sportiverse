@@ -171,3 +171,30 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           images: '${{ env.DOCKER_IMAGE }}'
           slot-name: dev
+
+  gmail-notify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always() # Always run this job even if the previous jobs fail
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_PASSWORD }} # Note this is a app password and not your actual password. You can create an app password using https://myaccount.google.com/apppasswords
+          subject: '${{ job.status }}: DevCamper API Deployment'
+          body: |
+            The deployment has ${{ job.status }}!
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Workflow: ${{ github.workflow }}
+            Job: ${{ github.job }}
+            Run ID: ${{ github.run_id }}
+            Run Number: ${{ github.run_number }}
+            Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.GMAIL_USERNAME }}
