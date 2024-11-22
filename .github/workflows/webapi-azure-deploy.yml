@@ -6,7 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
-      - '.github/workflows/webapi-deploy.yml'
+      - '.github/workflows/webapi-azure-deploy.yml'
   workflow_dispatch:
 
 env:
