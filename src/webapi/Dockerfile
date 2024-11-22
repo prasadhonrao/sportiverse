@@ -25,6 +25,13 @@ COPY --from=build /usr/src/app .
 # Install only production dependencies
 RUN npm install --only=production
 
+# Set NODE_ENV to production for performance optimizations
+ENV NODE_ENV=production
+
+# Create a non-root user and switch to it for running the app
+RUN addgroup --system appgroup && adduser --system appuser --ingroup appgroup
+USER appuser
+
 # Expose the port the app runs on
 EXPOSE 5000
 
