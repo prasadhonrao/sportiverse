@@ -1,21 +1,21 @@
-version: '3.8'
-
 services:
   webapp:
-    image: prasadhonrao/sportiverse-webapp:latest
+    image: prasadhonrao/sportiverse-webapp:dev
     ports:
-      - '${WEBAPP_PORT}:3000'
-    environment:
-      - REACT_APP_SPORTIVERSE_BASE_API_URI={REACT_APP_SPORTIVERSE_BASE_API_URI} + ':' + ${PORT}
+      - '${WEBAPP_PORT}:${CONTAINER_PORT}'
     depends_on:
       - webapi
+    environment:
+      - REACT_APP_BASE_API_URI=http://webapi:${PORT} # Add this line
+    networks:
+      - sportiverse_network
   webapi:
-    image: prasadhonrao/sportiverse-webapi:latest
+    image: prasadhonrao/sportiverse-webapi
     ports:
       - '${PORT}:${PORT}'
     environment:
       - PORT=${PORT}
-      - node_env=${node_env}
+      - NODE_ENV=${NODE_ENV}
       - MONGODB_HOST=${MONGODB_HOST}
       - MONGODB_PORT=${MONGODB_PORT}
       - MONGODB_USERNAME=${MONGODB_USERNAME}
@@ -26,13 +26,17 @@ services:
       - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
       - PAYPAL_APP_SECRET=${PAYPAL_APP_SECRET}
       - PAYPAL_API_URL=${PAYPAL_API_URL}
-
+      - PAGINATION_LIMIT=${PAGINATION_LIMIT}
     depends_on:
       - mongo
+    networks:
+      - sportiverse_network
   mongo:
     image: mongo
     ports:
       - 27017:27017
+    networks:
+      - sportiverse_network
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
@@ -41,3 +45,6 @@ services:
 
 volumes:
   mongo-data:
+
+networks:
+  sportiverse_network:
