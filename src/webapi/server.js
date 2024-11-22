@@ -33,6 +33,7 @@ app.use(cors()); // Enable CORS
 connectDB();
 
 // Custom routes
+app.use('/', homeRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/users', userRoutes);
@@ -60,12 +61,6 @@ app.get('/api/config/paypal', (req, res) => res.send({ clientId: process.env.PAY
 // File upload routes
 const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '/uploads');
 app.use('/uploads', express.static(uploadPath));
-
-if (process.env.NODE_ENV !== 'production') {
-  app.get('/', (req, res) => {
-    res.send('API is running....');
-  });
-}
 
 // Custom middlewares
 app.use(errorHandler);

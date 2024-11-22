@@ -7,7 +7,11 @@ router.get('/', (req, res) => {
 });
 
 router.get('/version', (req, res) => {
-  res.status(200).send('1.0');
+  res.status(200).send('1.1');
+});
+
+router.get('/status', (req, res) => {
+  res.status(200).send('OK');
 });
 
 export default router;
