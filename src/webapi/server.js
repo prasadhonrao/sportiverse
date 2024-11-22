@@ -42,14 +42,26 @@ app.use('/api/upload', uploadRoutes);
 // PayPal routes
 app.get('/api/config/paypal', (req, res) => res.send({ clientId: process.env.PAYPAL_CLIENT_ID }));
 
-if (process.env.NODE_ENV === 'production') {
-  const __dirname = path.resolve();
-  app.use('/uploads', express.static('/var/data/uploads'));
-  app.use(express.static(path.join(__dirname, '../webapp/build')));
-  app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'webapp', 'build', 'index.html')));
-} else {
-  const __dirname = path.resolve();
-  app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+// File upload routes
+// if (process.env.NODE_ENV === 'production') {
+//   const __dirname = path.resolve();
+//   const uploadPath = process.env.UPLOAD_PATH || '/uploads';
+//   app.use('/uploads', express.static(uploadPath));
+//   app.use(express.static(path.join(__dirname, '../webapp/build')));
+//   app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'webapp', 'build', 'index.html')));
+// } else {
+//   const __dirname = path.resolve();
+//   app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+//   app.get('/', (req, res) => {
+//     res.send('API is running....');
+//   });
+// }
+
+// File upload routes
+const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '/uploads');
+app.use('/uploads', express.static(uploadPath));
+
+if (process.env.NODE_ENV !== 'production') {
   app.get('/', (req, res) => {
     res.send('API is running....');
   });
