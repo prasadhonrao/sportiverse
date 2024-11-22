@@ -4,6 +4,15 @@ FROM node:20 AS build
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
+# Add build argument for REACT_APP_BASE_API_URI
+ARG REACT_APP_BASE_API_URI
+
+# Set environment variable for the build
+ENV REACT_APP_BASE_API_URI=${REACT_APP_BASE_API_URI}
+
+# Echo the value of REACT_APP_BASE_API_URI for debugging
+RUN echo "REACT_APP_BASE_API_URI is set to: $REACT_APP_BASE_API_URI"
+
 # Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
@@ -12,10 +21,6 @@ RUN npm install
 
 # Copy the rest of the application code to the working directory
 COPY . .
-
-# Set build-time environment variables
-ARG REACT_APP_BASE_API_URI
-ENV REACT_APP_BASE_API_URI=${REACT_APP_BASE_API_URI}
 
 RUN npm run build
 
