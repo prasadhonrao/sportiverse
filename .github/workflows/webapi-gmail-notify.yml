@@ -16,7 +16,7 @@ env:
 jobs:
   notify:
     runs-on: ubuntu-latest
-    if: always()
+    if: always() # Always run this job even if the previous jobs fail
 
     steps:
       - name: Send email notification
@@ -25,7 +25,7 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 587
           username: ${{ secrets.GMAIL_USERNAME }}
-          password: ${{ secrets.GMAIL_PASSWORD }}
+          password: ${{ secrets.GMAIL_PASSWORD }} # Note this is a app password and not your actual password. You can create an app password using https://myaccount.google.com/apppasswords
           subject: '${{ job.status }}: DevCamper API Deployment'
           body: |
             The deployment has ${{ job.status }}!
