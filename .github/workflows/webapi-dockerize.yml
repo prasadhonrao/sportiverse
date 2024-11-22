@@ -33,5 +33,7 @@ jobs:
         run: |
           docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} -f src/webapi/Dockerfile src/webapi
           docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:dev
           docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DOCKER_IMAGE }}:dev
           docker push ${{ env.DOCKER_IMAGE }}:latest
