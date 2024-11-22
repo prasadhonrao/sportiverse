@@ -3,6 +3,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import colors from 'colors';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 
 import connectDB from './config/db.js';
 
@@ -26,6 +27,7 @@ const app = express();
 app.use(express.json()); // Body parser is used to parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // URL parser is used to parse URL-encoded bodies
 app.use(cookieParser()); // Cookie parser is used to parse cookies
+app.use(cors()); // Enable CORS
 
 // Connect to MongoDB
 connectDB();
