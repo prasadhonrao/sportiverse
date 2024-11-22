@@ -1,7 +1,11 @@
-# Dev image build
-docker build --build-arg REACT_APP_BASE_API_URI=http://localhost:5000 -t prasadhonrao/sportiverse-webapp:dev .
-docker push prasadhonrao/sportiverse-webapp:dev
+#!/bin/bash
 
-# Prod image build
-# docker build --build-arg REACT_APP_BASE_API_URI=http://sportiverse.webapi -t prasadhonrao/sportiverse-webapp:prod .
-# docker push prasadhonrao/sportiverse-webapp:prod
+# Ensure the correct URI is passed as an argument to the update-config.sh script
+BASE_API_URI=$1
+
+# Call the update-config.sh script to update the value of REACT_APP_BASE_API_URI
+./update-config.sh "$BASE_API_URI"
+
+# Now, build and push the Docker image
+docker build -t prasadhonrao/sportiverse-webapp:dev .
+docker push prasadhonrao/sportiverse-webapp:dev
