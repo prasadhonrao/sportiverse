@@ -84,6 +84,77 @@ const products = [
     countInStock: 0,
     rating: 4,
   },
+  {
+    _id: '5d725a037b292f5f8ceff788',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'GM Cricket Bat',
+    image: '/images/gm-cricket-bat.jpg',
+    description:
+      'High-quality English willow cricket bat with excellent balance and pickup. Ideal for professional and amateur cricketers.',
+    brand: 'Gunn & Moore',
+    category: 'Sports',
+    price: 129.99,
+    countInStock: 15,
+  },
+  {
+    _id: '5d725a037b292f5f8ceff789',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'Wilson Tennis Racket',
+    image: '/images/wilson-tennis-racket.png',
+    description:
+      'Lightweight and durable tennis racket with excellent grip and control. Suitable for players of all skill levels.',
+    brand: 'Wilson',
+    category: 'Sports',
+    price: 79.99,
+    countInStock: 20,
+  },
+  {
+    _id: '5d725a037b292f5f8ceff790',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'Yonex Badminton Racket',
+    image: '/images/yonex-badminton-racket.jpg',
+    description:
+      'High-performance badminton racket with excellent control and power. Ideal for both beginners and professional players.',
+    brand: 'Yonex',
+    category: 'Sports',
+    price: 99.99,
+    countInStock: 25,
+  },
+  {
+    _id: '5d725a037b292f5f8ceff791',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'Firecrest Cricket Kit',
+    image: '/images/firecrest-cricket-kit.png',
+    description: 'Complete cricket kit including bat, pads, gloves, helmet, and bag. Ideal for players of all levels.',
+    brand: 'Firecrest',
+    category: 'Sports',
+    price: 199.99,
+    countInStock: 10,
+  },
+  {
+    _id: '5d725a037b292f5f8ceff792',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'Nylon Skipping Rope',
+    image: '/images/nylon-skipping-rope.jpg',
+    description:
+      'Durable nylon skipping rope with comfortable handles. Ideal for fitness training and cardio workouts.',
+    brand: 'FitPro',
+    category: 'Sports',
+    price: 14.99,
+    countInStock: 50,
+  },
+  {
+    _id: '5d725a037b292f5f8ceff793',
+    user: '1d7a514b5d2c12c7449be001',
+    name: 'Pickleball Paddle',
+    image: '/images/pickleball-paddle.png',
+    description:
+      'High-quality pickleball paddle with excellent grip and control. Ideal for players of all skill levels.',
+    brand: 'PicklePro',
+    category: 'Sports',
+    price: 39.99,
+    countInStock: 30,
+  },
 ];
 
 export default products;
