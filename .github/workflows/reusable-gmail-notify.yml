@@ -30,6 +30,13 @@ on:
       run_number:
         required: true
         type: string
+    secrets:
+      GMAIL_USERNAME:
+        required: true
+      GMAIL_PASSWORD:
+        required: true
+      NOTIFY_EMAIL:
+        required: true
 
 jobs:
   send-email:
