@@ -16,6 +16,10 @@ jobs:
     with:
       docker-tag: latest
       deployment-slot: production
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   gmail-notify:
     uses: ./.github/workflows/reusable-gmail-notify.yml
