@@ -42,7 +42,7 @@ jobs:
           server_port: 587
           username: ${{ secrets.GMAIL_USERNAME }}
           password: ${{ secrets.GMAIL_PASSWORD }}
-          subject: '${{ inputs.status }}: DevCamper API Deployment'
+          subject: '${{ inputs.status }}: Sportiverse API Deployment'
           body: |
             The deployment has ${{ inputs.status }}!
             Repository: ${{ inputs.repository }}
