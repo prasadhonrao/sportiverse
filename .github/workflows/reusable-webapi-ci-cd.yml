@@ -3,7 +3,7 @@ name: Reusable WebAPI CI/CD Workflow
 on:
   workflow_call:
     inputs:
-      slot:
+      deployment-slot:
         description: 'Azure Web App Slot (dev or production)'
         required: true
         type: string
@@ -55,4 +55,4 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           images: '${{ env.DOCKER_IMAGE }}'
-          slot-name: ${{ inputs.slot }}
+          slot-name: ${{ inputs.deployment-slot }}

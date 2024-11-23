@@ -1,0 +1,58 @@
+name: Gmail Notify
+
+on:
+  workflow_call:
+    inputs:
+      status:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      commit:
+        required: true
+        type: string
+      actor:
+        required: true
+        type: string
+      workflow:
+        required: true
+        type: string
+      job:
+        required: true
+        type: string
+      run_id:
+        required: true
+        type: string
+      run_number:
+        required: true
+        type: string
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: '${{ inputs.status }}: DevCamper API Deployment'
+          body: |
+            The deployment has ${{ inputs.status }}!
+            Repository: ${{ inputs.repository }}
+            Branch: ${{ inputs.branch }}
+            Commit: ${{ inputs.commit }}
+            Author: ${{ inputs.actor }}
+            Workflow: ${{ inputs.workflow }}
+            Job: ${{ inputs.job }}
+            Run ID: ${{ inputs.run_id }}
+            Run Number: ${{ inputs.run_number }}
+            Logs: ${{ github.server_url }}/${{ inputs.repository }}/actions/runs/${{ inputs.run_id }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.GMAIL_USERNAME }}
