@@ -136,6 +136,10 @@ jobs:
     with:
       docker-tag: dev
       deployment-slot: dev
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   gmail-notify:
     uses: ./.github/workflows/reusable-gmail-notify.yml
@@ -151,3 +155,7 @@ jobs:
       job: ${{ github.job }}
       run_id: ${{ github.run_id }}
       run_number: ${{ github.run_number }}
+    secrets:
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}

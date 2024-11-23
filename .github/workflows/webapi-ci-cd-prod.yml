@@ -35,3 +35,7 @@ jobs:
       job: ${{ github.job }}
       run_id: ${{ github.run_id }}
       run_number: ${{ github.run_number }}
+    secrets:
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
