@@ -11,6 +11,16 @@ on:
         description: 'Tag for the Docker image (dev or latest)'
         required: true
         type: string
+    secrets:
+      DOCKER_USERNAME:
+        description: 'Docker Hub username'
+        required: true
+      DOCKER_PASSWORD:
+        description: 'Docker Hub password'
+        required: true
+      AZURE_SERVICE_PRINCIPAL:
+        description: 'Azure Service Principal for login'
+        required: true
 
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
