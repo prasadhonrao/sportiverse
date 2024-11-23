@@ -3,6 +3,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import colors from 'colors';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 
 import connectDB from './config/db.js';
 
@@ -26,11 +27,13 @@ const app = express();
 app.use(express.json()); // Body parser is used to parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // URL parser is used to parse URL-encoded bodies
 app.use(cookieParser()); // Cookie parser is used to parse cookies
+app.use(cors()); // Enable CORS
 
 // Connect to MongoDB
 connectDB();
 
 // Custom routes
+app.use('/', homeRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/users', userRoutes);
@@ -40,18 +43,24 @@ app.use('/api/upload', uploadRoutes);
 // PayPal routes
 app.get('/api/config/paypal', (req, res) => res.send({ clientId: process.env.PAYPAL_CLIENT_ID }));
 
-if (process.env.NODE_ENV === 'production') {
-  const __dirname = path.resolve();
-  app.use('/uploads', express.static('/var/data/uploads'));
-  app.use(express.static(path.join(__dirname, '../webapp/build')));
-  app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'webapp', 'build', 'index.html')));
-} else {
-  const __dirname = path.resolve();
-  app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
-  app.get('/', (req, res) => {
-    res.send('API is running....');
-  });
-}
+// File upload routes
+// if (process.env.NODE_ENV === 'production') {
+//   const __dirname = path.resolve();
+//   const uploadPath = process.env.UPLOAD_PATH || '/uploads';
+//   app.use('/uploads', express.static(uploadPath));
+//   app.use(express.static(path.join(__dirname, '../webapp/build')));
+//   app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'webapp', 'build', 'index.html')));
+// } else {
+//   const __dirname = path.resolve();
+//   app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+//   app.get('/', (req, res) => {
+//     res.send('API is running....');
+//   });
+// }
+
+// File upload routes
+const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, '/uploads');
+app.use('/uploads', express.static(uploadPath));
 
 // Custom middlewares
 app.use(errorHandler);

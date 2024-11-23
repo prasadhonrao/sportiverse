@@ -6,6 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
+      - '.github/workflows/webapi-dependency-check.yml'
   workflow_dispatch:
 
 jobs:

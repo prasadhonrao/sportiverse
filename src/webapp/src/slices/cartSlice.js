@@ -31,10 +31,12 @@ export const cartSlice = createSlice({
       state.paymentMethod = action.payload;
       return updateCart(state);
     },
+    // eslint-disable-next-line no-unused-vars
     clearCartItems: (state, action) => {
       state.cartItems = [];
       return updateCart(state);
     },
+    // eslint-disable-next-line no-unused-vars
     resetCart: (state) => (state = initialState),
   },
 });

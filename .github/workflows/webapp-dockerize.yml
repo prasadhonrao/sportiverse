@@ -1,0 +1,39 @@
+name: Web App Dockerize
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'src/webapp/**'
+      - '.github/workflows/webapp-dockerize.yml'
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: prasadhonrao/sportiverse-webapp
+
+jobs:
+  dockerize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build --build-arg REACT_APP_BASE_API_URI=${{ secrets.REACT_APP_BASE_API_URI }} -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} -f src/webapp/Dockerfile src/webapp
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:dev
+          docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DOCKER_IMAGE }}:dev
+          docker push ${{ env.DOCKER_IMAGE }}:latest

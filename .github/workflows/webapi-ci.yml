@@ -6,9 +6,10 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
+      - '.github/workflows/webapi-ci.yml'
   workflow_dispatch: # Manually trigger the workflow
-  schedule:
-    - cron: '0 0 * * *' # Run every day at midnight
+  # schedule:
+  #   - cron: '0 0 * * *' # Run every day at midnight
 
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
@@ -129,7 +130,7 @@ jobs:
           name: coverage-report
           path: src/webapi/coverage
 
-  dozkerize:
+  dockerize:
     runs-on: ubuntu-latest
     needs: code-coverage
 
@@ -150,5 +151,50 @@ jobs:
         run: |
           docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} -f src/webapi/Dockerfile src/webapi
           docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest
+          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:dev
           docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DOCKER_IMAGE }}:dev
           docker push ${{ env.DOCKER_IMAGE }}:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: dockerize
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          images: '${{ env.DOCKER_IMAGE }}'
+          slot-name: dev
+
+  gmail-notify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always() # Always run this job even if the previous jobs fail
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_PASSWORD }} # Note this is a app password and not your actual password. You can create an app password using https://myaccount.google.com/apppasswords
+          subject: '${{ job.status }}: DevCamper API Deployment'
+          body: |
+            The deployment has ${{ job.status }}!
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Workflow: ${{ github.workflow }}
+            Job: ${{ github.job }}
+            Run ID: ${{ github.run_id }}
+            Run Number: ${{ github.run_number }}
+            Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.GMAIL_USERNAME }}

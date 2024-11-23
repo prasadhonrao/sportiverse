@@ -1,0 +1,50 @@
+services:
+  webapp:
+    image: prasadhonrao/sportiverse-webapp:dev
+    ports:
+      - '${WEBAPP_PORT}:${CONTAINER_PORT}'
+    depends_on:
+      - webapi
+    environment:
+      - REACT_APP_BASE_API_URI=http://webapi:${PORT}
+    networks:
+      - sportiverse_network
+  webapi:
+    image: prasadhonrao/sportiverse-webapi
+    ports:
+      - '${PORT}:${PORT}'
+    environment:
+      - PORT=${PORT}
+      - NODE_ENV=${NODE_ENV}
+      - MONGODB_HOST=${MONGODB_HOST}
+      - MONGODB_PORT=${MONGODB_PORT}
+      - MONGODB_USERNAME=${MONGODB_USERNAME}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME}
+      - MONGODB_DB_PARAMS=${MONGODB_DB_PARAMS}
+      - JWT_SECRET=${JWT_SECRET}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_APP_SECRET=${PAYPAL_APP_SECRET}
+      - PAYPAL_API_URL=${PAYPAL_API_URL}
+      - PAGINATION_LIMIT=${PAGINATION_LIMIT}
+    depends_on:
+      - mongo
+    networks:
+      - sportiverse_network
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    networks:
+      - sportiverse_network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
+
+networks:
+  sportiverse_network:
