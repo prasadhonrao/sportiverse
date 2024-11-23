@@ -1,4 +1,4 @@
-name: WebAPI Continuous Integration
+name: WebAPI Dev CI & CD
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapi/**'
-      - '.github/workflows/webapi-ci.yml'
+      - '.github/workflows/webapi-ci-cd-dev.yml'
   workflow_dispatch: # Manually trigger the workflow
   # schedule:
   #   - cron: '0 0 * * *' # Run every day at midnight
@@ -130,71 +130,32 @@ jobs:
           name: coverage-report
           path: src/webapi/coverage
 
-  dockerize:
-    runs-on: ubuntu-latest
-    needs: code-coverage
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
-        run: |
-          docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} -f src/webapi/Dockerfile src/webapi
-          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:latest
-          docker tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} ${{ env.DOCKER_IMAGE }}:dev
-          docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          docker push ${{ env.DOCKER_IMAGE }}:dev
-          docker push ${{ env.DOCKER_IMAGE }}:latest
-
   deploy:
-    runs-on: ubuntu-latest
-    needs: dockerize
-    steps:
-      - name: Log in to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: '${{ env.DOCKER_IMAGE }}'
-          slot-name: dev
+    needs: code-coverage
+    uses: ./.github/workflows/reusable-webapi-ci-cd.yml
+    with:
+      docker-tag: dev
+      deployment-slot: dev
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   gmail-notify:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/reusable-gmail-notify.yml
     needs: deploy
     if: always() # Always run this job even if the previous jobs fail
-    steps:
-      - name: Send email notification
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.GMAIL_USERNAME }}
-          password: ${{ secrets.GMAIL_PASSWORD }} # Note this is a app password and not your actual password. You can create an app password using https://myaccount.google.com/apppasswords
-          subject: '${{ job.status }}: Sportiverse API Deployment'
-          body: |
-            The deployment has ${{ job.status }}!
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref }}
-            Commit: ${{ github.sha }}
-            Author: ${{ github.actor }}
-            Workflow: ${{ github.workflow }}
-            Job: ${{ github.job }}
-            Run ID: ${{ github.run_id }}
-            Run Number: ${{ github.run_number }}
-            Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.NOTIFY_EMAIL }}
-          from: ${{ secrets.GMAIL_USERNAME }}
+    with:
+      status: ${{ needs.deploy.result }}
+      repository: ${{ github.repository }}
+      branch: ${{ github.ref }}
+      commit: ${{ github.sha }}
+      actor: ${{ github.actor }}
+      workflow: ${{ github.workflow }}
+      job: ${{ github.job }}
+      run_id: ${{ github.run_id }}
+      run_number: ${{ github.run_number }}
+    secrets:
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}

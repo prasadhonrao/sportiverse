@@ -26,7 +26,7 @@ jobs:
           server_port: 587
           username: ${{ secrets.GMAIL_USERNAME }}
           password: ${{ secrets.GMAIL_PASSWORD }} # Note this is a app password and not your actual password. You can create an app password using https://myaccount.google.com/apppasswords
-          subject: '${{ job.status }}: DevCamper API Deployment'
+          subject: '${{ job.status }}: Sportiverse API Deployment'
           body: |
             The deployment has ${{ job.status }}!
             Repository: ${{ github.repository }}
