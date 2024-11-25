@@ -11,7 +11,7 @@ on:
 
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapp
-  AZURE_WEBAPP_NAME: sportiverse-webapp
+  AZURE_APP_SERVICE_NAME: sportiverse-webapp
 
 jobs:
   lint:

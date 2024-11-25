@@ -9,16 +9,16 @@ on:
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
   DOCKER_TAG: latest
-  AZURE_WEBAPP_NAME: sportiverse-webapi
-  AZURE_WEBAPP_DEPLOYMENT_SLOT: production
+  AZURE_APP_SERVICE_NAME: sportiverse-webapi
+  AZURE_APP_SERVICE_DEPLOYMENT_SLOT: production
 
 jobs:
   deploy:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
       docker-image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-      azure-webapp-name: ${{ env.AZURE_WEBAPP_NAME }}
-      deployment-slot: ${{ env.AZURE_WEBAPP_DEPLOYMENT_SLOT }}
+      azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
+      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

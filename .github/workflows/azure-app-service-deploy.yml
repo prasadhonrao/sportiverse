@@ -7,7 +7,7 @@ on:
         description: ''
         required: true
         type: string
-      azure-webapp-name:
+      azure-app-service-name:
         description: 'Azure App Service name'
         required: true
         type: string
@@ -31,6 +31,6 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ inputs.azure_webapp_name }}
+          app-name: ${{ inputs.azure-app-service-name }}
           images: '${{ inputs.docker_image }}'
           slot-name: ${{ inputs.deployment-slot }}

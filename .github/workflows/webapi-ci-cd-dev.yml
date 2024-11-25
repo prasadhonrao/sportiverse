@@ -12,26 +12,27 @@ on:
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
   DOCKER_TAG: dev
-  AZURE_WEBAPP_NAME: sportiverse-webapi
-  AZURE_WEBAPP_DEPLOYMENT_SLOT: dev
+  AZURE_APP_SERVICE_NAME: sportiverse-webapi
+  AZURE_APP_SERVICE_DEPLOYMENT_SLOT: dev
+  SOURCE_CODE_PATH: src/webapi
 
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
     with:
-      source-code-path: src/webapp
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dependency-check:
     needs: lint
     uses: ./.github/workflows/dependency-check.yml
     with:
-      source-code-path: src/webapp
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   security:
     needs: dependency-check
     uses: ./.github/workflows/security.yml
     with:
-      source-code-path: src/webapp
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   test:
     needs: security
@@ -49,7 +50,7 @@ jobs:
     needs: code-coverage
     uses: ./.github/workflows/dockerize.yml
     with:
-      source: src/webapp
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
       docker-image: ${{ env.DOCKER_IMAGE }}
       docker-tag: ${{ env.DOCKER_TAG }}
     secrets:
@@ -61,7 +62,7 @@ jobs:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
       docker-image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-      deployment-slot: ${{ env.AZURE_WEBAPP_DEPLOYMENT_SLOT }}
+      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
