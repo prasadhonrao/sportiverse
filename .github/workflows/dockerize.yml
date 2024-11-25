@@ -11,10 +11,6 @@ on:
         description: 'Docker image name'
         required: true
         type: string
-      docker-tag:
-        description: 'Tag for the Docker image (dev or latest)'
-        required: true
-        type: string
     secrets:
       DOCKER_USERNAME:
         description: 'Docker Hub username'
@@ -43,6 +39,5 @@ jobs:
       - name: Build and push Docker image
         run: |
           docker build -t ${{ inputs.docker-image }}:${{ github.sha }} -f ${{inputs.source-code-path}}/Dockerfile ${{inputs.source-code-path}}
-          docker tag ${{ inputs.docker-image }}:${{ github.sha }} ${{ inputs.docker-image }}:${{ inputs.docker-tag }}
+          docker tag ${{ inputs.docker-image }}:${{ github.sha }} ${{ inputs.docker-image }}
           docker push ${{ inputs.docker-image }}:${{ github.sha }}
-          docker push ${{ inputs.docker-image }}:${{ inputs.docker-tag }}

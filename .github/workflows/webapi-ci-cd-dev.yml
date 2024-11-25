@@ -29,6 +29,10 @@ jobs:
 
   security:
     needs: dependency-check
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     uses: ./.github/workflows/security.yml
     with:
       source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
@@ -61,6 +65,7 @@ jobs:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
       docker-image: ${{ github.event.inputs.DOCKER_IMAGE }}
+      azure-app-service-name: ${{ github.event.inputs.AZURE_APP_SERVICE_NAME }}
       deployment-slot: ${{ github.event.inputs.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
