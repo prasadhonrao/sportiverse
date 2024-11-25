@@ -9,23 +9,22 @@ on:
       - '.github/workflows/webapi-ci-cd-dev.yml'
   workflow_dispatch:
 
-env:
-  DOCKER_IMAGE: prasadhonrao/sportiverse-webapi:dev
-  AZURE_APP_SERVICE_NAME: sportiverse-webapi
-  AZURE_APP_SERVICE_DEPLOYMENT_SLOT: dev
-  SOURCE_CODE_PATH: src/webapi
+x-source-code-path: &source-code-path src/webapi
+x-docker-image: &docker-image prasadhonrao/sportiverse-webapi:dev
+x-azure-app-service-name: &azure-app-service-name sportiverse-webapi
+x-azure-app-service-deployment-slot: &azure-app-service-deployment-slot dev
 
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      source-code-path: *source-code-path
 
   dependency-check:
     needs: lint
     uses: ./.github/workflows/dependency-check.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      source-code-path: *source-code-path
 
   security:
     needs: dependency-check
@@ -35,27 +34,26 @@ jobs:
       security-events: write
     uses: ./.github/workflows/security.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      source-code-path: *source-code-path
 
   test:
     needs: security
     uses: ./.github/workflows/test.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      source-code-path: *source-code-path
 
   code-coverage:
     needs: test
     uses: ./.github/workflows/code-coverage.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      source-code-path: *source-code-path
 
   dockerize:
     needs: code-coverage
     uses: ./.github/workflows/dockerize.yml
     with:
-      source-code-path: ${{ env.SOURCE_CODE_PATH }}
-      docker-image: ${{ env.DOCKER_IMAGE }}
-      docker-tag: ${{ env.DOCKER_TAG }}
+      source-code-path: *source-code-path
+      docker-image: *docker-image
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -64,9 +62,9 @@ jobs:
     needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ env.DOCKER_IMAGE }}
-      azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
-      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
+      docker-image: *docker-image
+      azure-app-service-name: *azure-app-service-name
+      deployment-slot: *azure-app-service-deployment-slot
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
