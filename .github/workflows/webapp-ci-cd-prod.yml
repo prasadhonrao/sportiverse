@@ -1,4 +1,4 @@
-name: Web API Prod CI & CD
+name: Web App Prod CI & CD
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
   deploy:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: prasadhonrao/sportiverse-webapi
-      azure-app-service-name: sportiverse-webapi
+      docker-image: prasadhonrao/sportiverse-webapp
+      azure-app-service-name: sportiverse-webapp
       deployment-slot: production
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
