@@ -21,10 +21,12 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install --prefix ${{ inputs.source-code-path }}
+        run: npm install
+        working-directory: ${{inputs.source-code-path}}
 
       - name: Run tests with coverage
-        run: npm run test --prefix ${{inputs.source-code-path}} -- --coverage
+        run: npm run test --coverage
+        working-directory: ${{inputs.source-code-path}}
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

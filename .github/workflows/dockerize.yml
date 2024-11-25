@@ -38,6 +38,6 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ inputs.docker-image }}:${{ github.sha }} -f ${{inputs.source-code-path}}/Dockerfile ${{inputs.source-code-path}}
-          docker tag ${{ inputs.docker-image }}:${{ github.sha }} ${{ inputs.docker-image }}
-          docker push ${{ inputs.docker-image }}:${{ github.sha }}
+          docker build -t ${{ inputs.docker-image }} -f ${{inputs.source-code-path}}/Dockerfile ${{inputs.source-code-path}}
+          docker tag ${{ inputs.docker-image }}${{ inputs.docker-image }}
+          docker push ${{ inputs.docker-image }}
