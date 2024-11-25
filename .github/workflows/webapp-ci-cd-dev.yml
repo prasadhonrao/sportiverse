@@ -1,0 +1,140 @@
+name: Web App Dev CI & CD
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'src/webapp/**'
+      - '.github/workflows/webapp-ci-cd.yml'
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: prasadhonrao/sportiverse-webapp
+  AZURE_WEBAPP_NAME: sportiverse-webapp
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapp
+
+      - name: Run linter
+        run: |
+          export PATH=$(pwd)/src/webapp/node_modules/.bin:$PATH
+          npm run lint --prefix src/webapp
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapp
+
+      # TODO: Analyze how to check for high severity vulnerabilities
+      # - name: Run dependency check
+      #   run: npm audit --audit-level=high --prefix src/webapp
+
+  security:
+    runs-on: ubuntu-latest
+    needs: dependency-check
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapp
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  test:
+    runs-on: ubuntu-latest
+    needs: security
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapp
+
+      - name: Run tests
+        run: npm test --prefix src/webapp
+
+  code-coverage:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix src/webapp
+
+      - name: Run tests with coverage
+        run: npm run test --prefix src/webapp -- --coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: src/webapp/coverage
+
+  dockerize:
+    uses: ./.github/workflows/reusable-dockerize.yml
+    with:
+      source: src/webapp
+      docker-image: prasadhonrao/sportiverse-webapp
+      docker-tag: dev
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
