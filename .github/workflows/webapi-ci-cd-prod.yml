@@ -15,12 +15,10 @@ jobs:
   deploy:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ env.DOCKER_IMAGE }}
-      azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
-      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
+      docker-image: ${{ github.event.inputs.env.DOCKER_IMAGE }}
+      azure-app-service-name: ${{ github.event.inputs.AZURE_APP_SERVICE_NAME }}
+      deployment-slot: ${{ github.event.inputs.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   gmail-notify:
