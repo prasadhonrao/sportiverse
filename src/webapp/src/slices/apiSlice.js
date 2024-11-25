@@ -3,7 +3,7 @@ import { getConfigValue } from '../service/configService';
 
 export const apiSlice = createApi({
   baseQuery: async (args, api, extraOptions) => {
-    const baseUrl = (await getConfigValue('REACT_APP_BASE_API_URI')) || 'http://localhost:5000'; // Fallback
+    const baseUrl = (await getConfigValue('BASE_API_URI')) || 'http://localhost:5000'; // Fallback
     console.log('baseUrl:', baseUrl);
     const baseQuery = fetchBaseQuery({ baseUrl });
     return baseQuery(args, api, extraOptions);
