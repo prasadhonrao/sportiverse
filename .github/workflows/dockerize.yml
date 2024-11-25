@@ -3,7 +3,7 @@ name: Dockerize
 on:
   workflow_call:
     inputs:
-      source:
+      source-code-path:
         description: 'Source of the Docker image (webapi or webapp)'
         required: true
         type: string
@@ -42,7 +42,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ inputs.docker-image }}:${{ github.sha }} -f ${{inputs.source}}/Dockerfile ${{inputs.source}}
+          docker build -t ${{ inputs.docker-image }}:${{ github.sha }} -f ${{inputs.source-code-path}}/Dockerfile ${{inputs.source-code-path}}
           docker tag ${{ inputs.docker-image }}:${{ github.sha }} ${{ inputs.docker-image }}:${{ inputs.docker-tag }}
           docker push ${{ inputs.docker-image }}:${{ github.sha }}
           docker push ${{ inputs.docker-image }}:${{ inputs.docker-tag }}

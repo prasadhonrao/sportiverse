@@ -32,5 +32,5 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ inputs.azure-app-service-name }}
-          images: '${{ inputs.docker_image }}'
+          images: '${{ inputs.docker-image }}'
           slot-name: ${{ inputs.deployment-slot }}
