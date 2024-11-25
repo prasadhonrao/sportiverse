@@ -22,9 +22,6 @@ on:
       DOCKER_PASSWORD:
         description: 'Docker Hub password'
         required: true
-      AZURE_SERVICE_PRINCIPAL:
-        description: 'Azure Service Principal for login'
-        required: true
 
 jobs:
   dockerize:
