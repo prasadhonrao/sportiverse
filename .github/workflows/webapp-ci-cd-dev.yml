@@ -130,6 +130,7 @@ jobs:
           path: src/webapp/coverage
 
   dockerize:
+    needs: code-coverage
     uses: ./.github/workflows/reusable-dockerize.yml
     with:
       source: src/webapp
