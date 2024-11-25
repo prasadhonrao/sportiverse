@@ -10,6 +10,9 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.source-code-path }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

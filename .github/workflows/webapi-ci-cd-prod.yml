@@ -15,9 +15,9 @@ jobs:
   deploy:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ github.event.inputs.env.DOCKER_IMAGE }}
-      azure-app-service-name: ${{ github.event.inputs.AZURE_APP_SERVICE_NAME }}
-      deployment-slot: ${{ github.event.inputs.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
+      docker-image: ${{ env.env.DOCKER_IMAGE }}
+      azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
+      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 

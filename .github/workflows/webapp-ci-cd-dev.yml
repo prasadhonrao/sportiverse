@@ -19,38 +19,38 @@ jobs:
   lint:
     uses: ./.github/workflows/lint.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dependency-check:
     needs: lint
     uses: ./.github/workflows/dependency-check.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   security:
     needs: dependency-check
     uses: ./.github/workflows/security.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   test:
     needs: security
     uses: ./.github/workflows/test.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   code-coverage:
     needs: test
     uses: ./.github/workflows/code-coverage.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dockerize:
     needs: code-coverage
     uses: ./.github/workflows/dockerize.yml
     with:
-      source-code-path: ${{ github.event.inputs.SOURCE_CODE_PATH }}
-      docker-image: ${{ github.event.inputs.DOCKER_IMAGE }}
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      docker-image: ${{ env.DOCKER_IMAGE }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -59,9 +59,9 @@ jobs:
     needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ github.event.inputs.DOCKER_IMAGE }}
-      azure-app-service-name: ${{ github.event.inputs.AZURE_APP_SERVICE_NAME }}
-      deployment-slot: ${{ github.event.inputs.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
+      docker-image: ${{ env.DOCKER_IMAGE }}
+      azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
+      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
