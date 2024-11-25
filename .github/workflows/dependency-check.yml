@@ -1,0 +1,27 @@
+name: Dependency Check
+
+on:
+  workflow_call:
+    inputs:
+      source-code-path:
+        description: ''
+        required: true
+        type: string
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --prefix ${{ inputs.source-code-path }}
+
+      - name: Run dependency check
+        run: npm audit --audit-level=high --prefix ${{ inputs.source-code-path }}

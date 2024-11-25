@@ -131,7 +131,7 @@ jobs:
 
   dockerize:
     needs: code-coverage
-    uses: ./.github/workflows/reusable-dockerize.yml
+    uses: ./.github/workflows/dockerize.yml
     with:
       source: src/webapp
       docker-image: prasadhonrao/sportiverse-webapp
@@ -139,3 +139,22 @@ jobs:
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  gmail-notify:
+    uses: ./.github/workflows/gmail-notify.yml
+    needs: dockerize
+    if: always() # Always run this job even if the previous jobs fail
+    with:
+      status: ${{ needs.dockerize.result }}
+      repository: ${{ github.repository }}
+      branch: ${{ github.ref }}
+      commit: ${{ github.sha }}
+      actor: ${{ github.actor }}
+      workflow: ${{ github.workflow }}
+      job: ${{ github.job }}
+      run_id: ${{ github.run_id }}
+      run_number: ${{ github.run_number }}
+    secrets:
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}

@@ -8,21 +8,24 @@ on:
 
 env:
   DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
+  DOCKER_TAG: latest
   AZURE_WEBAPP_NAME: sportiverse-webapi
+  AZURE_WEBAPP_DEPLOYMENT_SLOT: production
 
 jobs:
   deploy:
-    uses: ./.github/workflows/reusable-webapi-ci-cd.yml
+    uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-tag: latest
-      deployment-slot: production
+      docker-image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+      azure-webapp-name: ${{ env.AZURE_WEBAPP_NAME }}
+      deployment-slot: ${{ env.AZURE_WEBAPP_DEPLOYMENT_SLOT }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   gmail-notify:
-    uses: ./.github/workflows/reusable-gmail-notify.yml
+    uses: ./.github/workflows/gmail-notify.yml
     needs: deploy
     if: always() # Always run this job even if the previous jobs fail
     with:
