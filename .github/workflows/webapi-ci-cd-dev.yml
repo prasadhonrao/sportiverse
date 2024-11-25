@@ -1,4 +1,4 @@
-name: WebAPI Dev CI & CD
+name: Web API Dev CI & CD
 
 on:
   push:
@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
-  DOCKER_TAG: dev
+  DOCKER_IMAGE: prasadhonrao/sportiverse-webapi:dev
   AZURE_APP_SERVICE_NAME: sportiverse-webapi
   AZURE_APP_SERVICE_DEPLOYMENT_SLOT: dev
   SOURCE_CODE_PATH: src/webapi
@@ -38,13 +37,13 @@ jobs:
     needs: security
     uses: ./.github/workflows/test.yml
     with:
-      source-code-path: src/webapi
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   code-coverage:
     needs: test
     uses: ./.github/workflows/code-coverage.yml
     with:
-      source-code-path: src/webapi
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dockerize:
     needs: code-coverage
@@ -61,7 +60,7 @@ jobs:
     needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+      docker-image: ${{ env.DOCKER_IMAGE }}
       deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}

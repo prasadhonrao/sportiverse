@@ -1,4 +1,4 @@
-name: WebAPI Prod CI & CD
+name: Web API Prod CI & CD
 
 on:
   push:
@@ -7,8 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: prasadhonrao/sportiverse-webapi
-  DOCKER_TAG: latest
+  DOCKER_IMAGE: prasadhonrao/sportiverse-webapi:latest
   AZURE_APP_SERVICE_NAME: sportiverse-webapi
   AZURE_APP_SERVICE_DEPLOYMENT_SLOT: production
 
@@ -16,7 +15,7 @@ jobs:
   deploy:
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
-      docker-image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+      docker-image: ${{ env.DOCKER_IMAGE }}
       azure-app-service-name: ${{ env.AZURE_APP_SERVICE_NAME }}
       deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
     secrets:

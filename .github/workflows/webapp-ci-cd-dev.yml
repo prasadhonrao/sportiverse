@@ -10,142 +10,68 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: prasadhonrao/sportiverse-webapp
+  DOCKER_IMAGE: prasadhonrao/sportiverse-webapp:dev
   AZURE_APP_SERVICE_NAME: sportiverse-webapp
+  AZURE_APP_SERVICE_DEPLOYMENT_SLOT: dev
+  SOURCE_CODE_PATH: src/webapp
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install --prefix src/webapp
-
-      - name: Run linter
-        run: |
-          export PATH=$(pwd)/src/webapp/node_modules/.bin:$PATH
-          npm run lint --prefix src/webapp
+    uses: ./.github/workflows/lint.yml
+    with:
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dependency-check:
-    runs-on: ubuntu-latest
     needs: lint
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install --prefix src/webapp
-
-      # TODO: Analyze how to check for high severity vulnerabilities
-      # - name: Run dependency check
-      #   run: npm audit --audit-level=high --prefix src/webapp
+    uses: ./.github/workflows/dependency-check.yml
+    with:
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   security:
-    runs-on: ubuntu-latest
     needs: dependency-check
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install --prefix src/webapp
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: javascript
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+    uses: ./.github/workflows/security.yml
+    with:
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   test:
-    runs-on: ubuntu-latest
     needs: security
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install --prefix src/webapp
-
-      - name: Run tests
-        run: npm test --prefix src/webapp
+    uses: ./.github/workflows/test.yml
+    with:
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   code-coverage:
-    runs-on: ubuntu-latest
     needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install --prefix src/webapp
-
-      - name: Run tests with coverage
-        run: npm run test --prefix src/webapp -- --coverage
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: src/webapp/coverage
+    uses: ./.github/workflows/code-coverage.yml
+    with:
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
 
   dockerize:
     needs: code-coverage
     uses: ./.github/workflows/dockerize.yml
     with:
-      source: src/webapp
-      docker-image: prasadhonrao/sportiverse-webapp
-      docker-tag: dev
+      source-code-path: ${{ env.SOURCE_CODE_PATH }}
+      docker-image: ${{ env.DOCKER_IMAGE }}
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
+  deploy:
+    needs: dockerize
+    uses: ./.github/workflows/azure-app-service-deploy.yml
+    with:
+      docker-image: ${{ env.DOCKER_IMAGE }}
+      deployment-slot: ${{ env.AZURE_APP_SERVICE_DEPLOYMENT_SLOT }}
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
   gmail-notify:
     uses: ./.github/workflows/gmail-notify.yml
-    needs: dockerize
+    needs: deploy
     if: always() # Always run this job even if the previous jobs fail
     with:
-      status: ${{ needs.dockerize.result }}
+      status: ${{ needs.deploy.result }}
       repository: ${{ github.repository }}
       branch: ${{ github.ref }}
       commit: ${{ github.sha }}
