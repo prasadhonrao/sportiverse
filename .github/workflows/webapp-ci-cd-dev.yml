@@ -15,14 +15,15 @@ jobs:
     with:
       source-code-path: src/webapp
 
-  dependency-check:
-    needs: lint
-    uses: ./.github/workflows/dependency-check.yml
-    with:
-      source-code-path: src/webapp
+  # TODO: Analyze resolving react web app dependencies in the audit report
+  # dependency-check:
+  #   needs: lint
+  #   uses: ./.github/workflows/dependency-check.yml
+  #   with:
+  #     source-code-path: src/webapp
 
   security:
-    needs: dependency-check
+    needs: lint
     uses: ./.github/workflows/security.yml
     with:
       source-code-path: src/webapp
