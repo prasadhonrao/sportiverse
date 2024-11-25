@@ -6,7 +6,7 @@ on:
       - dev
     paths:
       - 'src/webapp/**'
-      - '.github/workflows/webapp-ci-cd.yml'
+      - '.github/workflows/webapp-ci-cd-dev.yml'
   workflow_dispatch:
 
 env:
