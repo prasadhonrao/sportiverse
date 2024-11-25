@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sportiverse-webapi-configmap
+  namespace: sportiverse-namespace
+data:
+  PAGINATION_LIMIT: '10'
+  UPLOAD_PATH: '/uploads'

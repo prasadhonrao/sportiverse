@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sportiverse-webapp-deployment
+  namespace: sportiverse-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sportiverse-webapp
+  template:
+    metadata:
+      labels:
+        app: sportiverse-webapp
+    spec:
+      containers:
+        - name: sportiverse-webapp-container
+          image: prasadhonrao/sportiverse-webapp:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: NODE_ENV
+              value: 'production'
+          resources:
+            limits:
+              memory: '2Gi'
+              cpu: '2'
+            requests:
+              memory: '1Gi'
+              cpu: '1'
+          volumeMounts:
+            - name: config-volume
+              mountPath: /usr/share/nginx/html/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: sportiverse-webapp-configmap

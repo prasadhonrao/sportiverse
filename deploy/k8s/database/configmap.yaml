@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sportiverse-db-configmap
+  namespace: sportiverse-namespace
+data:
+  MONGODB_DB_NAME: sportiverse-db

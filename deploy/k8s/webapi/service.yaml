@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sportiverse-webapi-service
+  namespace: sportiverse-namespace
+spec:
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  selector:
+    app: sportiverse-webapi

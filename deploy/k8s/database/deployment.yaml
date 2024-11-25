@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sportiverse-db-deployment
+  namespace: sportiverse-namespace
+  labels:
+    app: sportiverse-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sportiverse-db
+  template:
+    metadata:
+      labels:
+        app: sportiverse-db
+    spec:
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: sportiverse-db-container
+          image: mongo
+          ports:
+            - name: mongodb-port
+              containerPort: 27017
+          env:
+            - name: MONGO_INITDB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: sportiverse-db-configmap
+                  key: MONGODB_DB_NAME
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sportiverse-db-secret
+                  key: MONGODB_USERNAME
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sportiverse-db-secret
+                  key: MONGODB_PASSWORD
+          resources:
+            requests:
+              memory: '1Gi'
+              cpu: '500m'
+            limits:
+              memory: '2Gi'
+              cpu: '1'
+          volumeMounts:
+            - name: mongodb-volume
+              mountPath: /data/sportiverse-db
+      volumes:
+        - name: mongodb-volume
+          persistentVolumeClaim:
+            claimName: sportiverse-pvc
