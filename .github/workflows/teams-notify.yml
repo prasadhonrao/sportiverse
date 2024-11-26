@@ -1,18 +1,51 @@
-name: Teams Notification Test
+name: Teams Notification
 
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      status:
+        description: 'Deployment status (success or failure)'
+        required: true
+        type: string
+      repository:
+        description: 'GitHub repository name'
+        required: true
+        type: string
+      branch:
+        description: 'Branch name'
+        required: true
+        type: string
+      commit:
+        description: 'Commit hash'
+        required: true
+        type: string
+      run_id:
+        description: 'GitHub Actions Run ID'
+        required: true
+        type: string
+    secrets:
+      TEAMS_WEBHOOK_URL:
+        description: 'Webhook URL for Microsoft Teams'
+        required: true
 
 jobs:
-  teams-notify:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - name: Send Deployment Notification to Teams
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
-          DEPLOY_STATUS: success
+          STATUS: ${{ inputs.status }}
+          REPOSITORY: ${{ inputs.repository }}
+          BRANCH: ${{ inputs.branch }}
+          COMMIT: ${{ inputs.commit }}
+          RUN_ID: ${{ inputs.run_id }}
         run: |
-          MESSAGE="Deployment Status: $DEPLOY_STATUS\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}"
+          MESSAGE="**Deployment Status**: $STATUS\n
+                   **Repository**: [$REPOSITORY](https://github.com/$REPOSITORY)\n
+                   **Branch**: $BRANCH\n
+                   **Commit**: $COMMIT\n
+                   **Workflow Run**: [View Details](https://github.com/$REPOSITORY/actions/runs/$RUN_ID)"
           curl -H "Content-Type: application/json" -d '{
-          "text": "'"$MESSAGE"'"
+            "text": "'"$MESSAGE"'"
           }' $TEAMS_WEBHOOK_URL
