@@ -53,8 +53,14 @@ jobs:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
-  deploy:
+  vulnerability-scan:
     needs: dockerize
+    uses: ./.github/workflows/vulnerability-scan.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapi:dev
+
+  deploy:
+    needs: vulnerability-scan
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
       docker-image: prasadhonrao/sportiverse-webapi:dev
