@@ -10,11 +10,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  hello:
-    uses: ./.github/hello-world-custom-action
-    with:
-      who-to-greet: 'Mona the Octocat'
-
   lint:
     uses: ./.github/workflows/lint.yml
     with:
