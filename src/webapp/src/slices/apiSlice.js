@@ -1,6 +1,5 @@
 import { fetchBaseQuery, createApi } from '@reduxjs/toolkit/query/react';
-import { BASE_URL } from '../constants';
-
+import { getConfigValue } from '../service/configService';
 import { logout } from './authSlice'; // Import the logout action
 
 // NOTE: code here has changed to handle when our JWT and Cookie expire.
@@ -8,18 +7,31 @@ import { logout } from './authSlice'; // Import the logout action
 // and log the user out
 // https://redux-toolkit.js.org/rtk-query/usage/customizing-queries#customizing-queries-with-basequery
 
-const baseQuery = fetchBaseQuery({
-  baseUrl: BASE_URL,
-});
+const baseQueryWithAuth = async (args, api, extraOptions) => {
+  // Get the base URL dynamically
+  let baseUrl = await getConfigValue('BASE_API_URI');
 
-async function baseQueryWithAuth(args, api, extra) {
-  const result = await baseQuery(args, api, extra);
+  if (!baseUrl) {
+    console.log('baseUrl not found');
+    baseUrl = 'http://localhost:5000';
+  }
+
+  // console.log('baseUrl:', baseUrl);
+
+  const baseQuery = fetchBaseQuery({
+    baseUrl,
+    credentials: 'include', // Ensure cookies are included in requests
+  });
+
+  const result = await baseQuery(args, api, extraOptions);
+
   // Dispatch the logout action on 401.
   if (result.error && result.error.status === 401) {
     api.dispatch(logout());
   }
+
   return result;
-}
+};
 
 export const apiSlice = createApi({
   baseQuery: baseQueryWithAuth, // Use the customized baseQuery
@@ -27,3 +39,5 @@ export const apiSlice = createApi({
   // eslint-disable-next-line no-unused-vars
   endpoints: (builder) => ({}),
 });
+
+export const apiSliceReducer = apiSlice.reducer;
