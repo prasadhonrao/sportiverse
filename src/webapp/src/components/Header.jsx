@@ -7,7 +7,7 @@ import { LinkContainer } from 'react-router-bootstrap';
 import logo from './../assets/logo/logo.png';
 import SearchBox from './SearchBox';
 import { useLogoutMutation } from '../slices/usersApiSlice';
-import { removeUserFromLocalStorage } from '../slices/authSlice';
+import { logout } from '../slices/authSlice';
 import { resetCart } from '../slices/cartSlice';
 
 const Header = () => {
@@ -17,12 +17,12 @@ const Header = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const [logout] = useLogoutMutation();
+  const [logoutApiCall] = useLogoutMutation();
 
   const logoutHandler = async () => {
     try {
-      await logout().unwrap();
-      dispatch(removeUserFromLocalStorage());
+      await logoutApiCall().unwrap();
+      dispatch(logout());
       dispatch(resetCart());
       navigate('/');
     } catch (error) {
