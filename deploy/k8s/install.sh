@@ -18,4 +18,4 @@ run_install namespace
 run_install database
 run_install webapi
 run_install webapp
-run_install network
+run_install ingress
