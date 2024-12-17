@@ -54,3 +54,5 @@ spec:
         - name: mongodb-volume
           persistentVolumeClaim:
             claimName: sportiverse-pvc
+      nodeSelector:
+        kubernetes.io/os: linux

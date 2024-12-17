@@ -98,3 +98,5 @@ spec:
             requests:
               memory: '1Gi'
               cpu: '1'
+      nodeSelector:
+        kubernetes.io/os: linux

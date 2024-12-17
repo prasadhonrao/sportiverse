@@ -35,3 +35,5 @@ spec:
         - name: config-volume
           configMap:
             name: sportiverse-webapp-configmap
+      nodeSelector:
+        kubernetes.io/os: linux
