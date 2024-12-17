@@ -17,5 +17,5 @@ trap 'cd - > /dev/null' EXIT
 run_uninstall database
 run_uninstall webapi
 run_uninstall webapp
-run_uninstall network
+run_uninstall ingress
 run_uninstall namespace

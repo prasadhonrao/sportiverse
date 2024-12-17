@@ -27,6 +27,7 @@ spec:
       containers:
         - name: sportiverse-webapi-container
           image: prasadhonrao/sportiverse-webapi:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           env:

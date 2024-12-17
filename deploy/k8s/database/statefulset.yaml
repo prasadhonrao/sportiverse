@@ -23,6 +23,7 @@ spec:
       containers:
         - name: sportiverse-db-container
           image: mongo
+          imagePullPolicy: IfNotPresent
           ports:
             - name: mongodb-port
               containerPort: 27017

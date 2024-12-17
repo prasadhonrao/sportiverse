@@ -17,6 +17,7 @@ spec:
       containers:
         - name: sportiverse-webapp-container
           image: prasadhonrao/sportiverse-webapp:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           env:
