@@ -13,6 +13,7 @@ spec:
       labels:
         app: sportiverse-webapp
     spec:
+      serviceAccountName: sportiverse-webapp-sa
       containers:
         - name: sportiverse-webapp-container
           image: prasadhonrao/sportiverse-webapp:latest

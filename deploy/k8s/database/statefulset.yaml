@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: sportiverse-db-deployment
+  name: sportiverse-db-statefulset
   namespace: sportiverse-namespace
   labels:
     app: sportiverse-db
 spec:
+  serviceName: 'sportiverse-statefulset-db-service' # Headless service for StatefulSet
   replicas: 1
   selector:
     matchLabels:
@@ -51,9 +52,13 @@ spec:
           volumeMounts:
             - name: mongodb-volume
               mountPath: /data/sportiverse-db
-      volumes:
-        - name: mongodb-volume
-          persistentVolumeClaim:
-            claimName: sportiverse-pvc
-      nodeSelector:
-        kubernetes.io/os: linux
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-volume # Name of the PVC to be created
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi # Size of the Persistent Volume for each pod
+        storageClassName: 'managed-premium'

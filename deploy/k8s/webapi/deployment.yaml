@@ -23,6 +23,7 @@ spec:
       labels:
         app: sportiverse-webapi
     spec:
+      serviceAccountName: sportiverse-webapi-sa
       containers:
         - name: sportiverse-webapi-container
           image: prasadhonrao/sportiverse-webapi:latest
