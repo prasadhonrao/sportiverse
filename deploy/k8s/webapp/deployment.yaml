@@ -33,18 +33,16 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /usr/share/nginx/html/config
-          # livenessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: 80
-          #   initialDelaySeconds: 10
-          #   periodSeconds: 5
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: 80
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: config-volume
           configMap:
