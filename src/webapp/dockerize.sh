@@ -9,3 +9,6 @@ BASE_API_URI=$1
 # Now, build and push the Docker image
 docker build -t prasadhonrao/sportiverse-webapp:dev .
 docker push prasadhonrao/sportiverse-webapp:dev
+
+docker tag prasadhonrao/sportiverse-webapp:dev prasadhonrao/sportiverse-webapp:latest
+docker push prasadhonrao/sportiverse-webapp:latest
