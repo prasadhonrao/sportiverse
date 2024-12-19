@@ -7,6 +7,11 @@ on:
       - '.github/workflows/webapp-ci-cd.yml'
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
