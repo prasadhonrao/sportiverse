@@ -6,7 +6,7 @@ services:
     depends_on:
       - webapi
     environment:
-      - REACT_APP_BASE_API_URI=http://webapi:${PORT}
+      - BASE_API_URI=http://webapi:${PORT}
     networks:
       - sportiverse_network
   webapi:

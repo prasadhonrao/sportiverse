@@ -8,7 +8,7 @@ NEW_BASE_API_URI="$1"
 
 # If no argument is passed, show an error and exit
 if [ -z "$NEW_BASE_API_URI" ]; then
-  echo "Error: REACT_APP_BASE_API_URI is required"
+  echo "Error: BASE_API_URI is required"
   echo "Usage: ./update-config.sh <new_base_api_uri>"
   exit 1
 fi
@@ -19,16 +19,16 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-# Update the REACT_APP_BASE_API_URI in the config.json file
-echo "Updating REACT_APP_BASE_API_URI in config.json to $NEW_BASE_API_URI"
+# Update the BASE_API_URI in the config.json file
+echo "Updating BASE_API_URI in config.json to $NEW_BASE_API_URI"
 
-# Use sed to replace the REACT_APP_BASE_API_URI value in config.json
+# Use sed to replace the BASE_API_URI value in config.json
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS: sed needs an empty string for -i option
-  sed -i "" "s|\"REACT_APP_BASE_API_URI\": \".*\"|\"REACT_APP_BASE_API_URI\": \"$NEW_BASE_API_URI\"|" "$CONFIG_FILE"
+  sed -i "" "s|\"BASE_API_URI\": \".*\"|\"BASE_API_URI\": \"$NEW_BASE_API_URI\"|" "$CONFIG_FILE"
 else
   # Linux: sed works with -i directly
-  sed -i "s|\"REACT_APP_BASE_API_URI\": \".*\"|\"REACT_APP_BASE_API_URI\": \"$NEW_BASE_API_URI\"|" "$CONFIG_FILE"
+  sed -i "s|\"BASE_API_URI\": \".*\"|\"BASE_API_URI\": \"$NEW_BASE_API_URI\"|" "$CONFIG_FILE"
 fi
 
 echo "Updated config.json successfully!"

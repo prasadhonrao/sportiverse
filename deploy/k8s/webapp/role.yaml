@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: sportiverse-namespace
+  name: webapp-role
+rules:
+  - apiGroups: ['']
+    resources: ['configmaps', 'secrets']
+    verbs: ['get', 'list']
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: webapp-rolebinding
+  namespace: sportiverse-namespace
+subjects:
+  - kind: ServiceAccount
+    name: sportiverse-webapp-sa
+    namespace: sportiverse-namespace
+roleRef:
+  kind: Role
+  name: webapp-role
+  apiGroup: rbac.authorization.k8s.io

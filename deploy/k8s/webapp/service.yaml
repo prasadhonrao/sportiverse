@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sportiverse-webapp-service
+  namespace: sportiverse-namespace
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: sportiverse-webapp
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sportiverse-webapp-lb-service
+  namespace: sportiverse-namespace
+spec:
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    app: sportiverse-webapp

@@ -5,7 +5,7 @@ import { Form, Button, Row, Col } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import FormContainer from '../components/FormContainer';
 import { useRegisterMutation } from '../slices/usersApiSlice';
-import { addUserToLocalStorage } from '../slices/authSlice';
+import { setCredentials } from '../slices/authSlice';
 
 const RegisterPage = () => {
   const [name, setName] = useState('');
@@ -38,7 +38,7 @@ const RegisterPage = () => {
         return;
       }
       const res = await register({ name, email, password }).unwrap();
-      dispatch(addUserToLocalStorage({ ...res }));
+      dispatch(setCredentials({ ...res }));
       navigate(redirect);
     } catch (error) {
       toast.error(error?.data?.message);

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sportiverse-webapp-deployment
+  namespace: sportiverse-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sportiverse-webapp
+  template:
+    metadata:
+      labels:
+        app: sportiverse-webapp
+    spec:
+      serviceAccountName: sportiverse-webapp-sa
+      containers:
+        - name: sportiverse-webapp-container
+          image: prasadhonrao/sportiverse-webapp:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          env:
+            - name: NODE_ENV
+              value: 'production'
+          resources:
+            limits:
+              memory: '2Gi'
+              cpu: '2'
+            requests:
+              memory: '1Gi'
+              cpu: '1'
+          volumeMounts:
+            - name: config-volume
+              mountPath: /usr/share/nginx/html/config
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config-volume
+          configMap:
+            name: sportiverse-webapp-configmap
+      nodeSelector:
+        kubernetes.io/os: linux

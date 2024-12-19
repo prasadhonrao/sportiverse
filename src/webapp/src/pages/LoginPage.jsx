@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import { Form, Button, Row, Col } from 'react-bootstrap';
-import { toast } from 'react-toastify';
+import { useDispatch, useSelector } from 'react-redux';
+import Loader from '../components/Loader';
 import FormContainer from '../components/FormContainer';
-import { useLoginMutation } from '../slices/usersApiSlice';
-import { addUserToLocalStorage } from '../slices/authSlice';
 
-const LoginPage = () => {
+import { useLoginMutation } from '../slices/usersApiSlice';
+import { setCredentials } from '../slices/authSlice';
+import { toast } from 'react-toastify';
+
+const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const [login, { isLoading }] = useLoginMutation();
+
   const { userInfo } = useSelector((state) => state.auth);
 
   const { search } = useLocation();
@@ -24,47 +28,49 @@ const LoginPage = () => {
     if (userInfo) {
       navigate(redirect);
     }
-  }, [userInfo, redirect, navigate]);
+  }, [navigate, redirect, userInfo]);
 
   const submitHandler = async (e) => {
+    e.preventDefault();
     try {
-      e.preventDefault();
       const res = await login({ email, password }).unwrap();
-      dispatch(addUserToLocalStorage({ ...res }));
+      dispatch(setCredentials({ ...res }));
       navigate(redirect);
-    } catch (error) {
-      toast.error(error?.data?.message);
+    } catch (err) {
+      toast.error(err?.data?.message || err.error);
     }
   };
+
   return (
     <FormContainer>
       <h1>Sign In</h1>
+
       <Form onSubmit={submitHandler}>
-        <Form.Group controlId="email" className="my-3">
-          <Form.Label className="my-2">Email Address</Form.Label>
+        <Form.Group className="my-2" controlId="email">
+          <Form.Label>Email Address</Form.Label>
           <Form.Control
             type="email"
             placeholder="Enter email"
-            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           ></Form.Control>
         </Form.Group>
-        <Form.Group controlId="password" className="my-3">
-          <Form.Label className="my-2">Password</Form.Label>
+
+        <Form.Group className="my-2" controlId="password">
+          <Form.Label>Password</Form.Label>
           <Form.Control
             type="password"
             placeholder="Enter password"
-            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           ></Form.Control>
         </Form.Group>
-        <Button type="submit" variant="primary" className="mt-2">
+
+        <Button disabled={isLoading} type="submit" variant="primary">
           Sign In
         </Button>
 
-        {isLoading && <h2>Loading...</h2>}
+        {isLoading && <Loader />}
       </Form>
 
       <Row className="py-3">
@@ -76,4 +82,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default LoginScreen;

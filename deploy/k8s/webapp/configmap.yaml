@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sportiverse-webapp-configmap
+  namespace: sportiverse-namespace
+data:
+  config.json: |
+    {
+      "BASE_API_URI": "http://sportiverse.webapi"
+    }

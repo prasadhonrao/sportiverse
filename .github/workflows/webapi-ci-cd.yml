@@ -1,0 +1,115 @@
+name: Web API CI & CD
+
+on:
+  push:
+    paths:
+      - 'src/webapi/**'
+      - '.github/workflows/webapi-ci-cd.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+    with:
+      source-code-path: src/webapi
+
+  dependency-check:
+    needs: lint
+    uses: ./.github/workflows/dependency-check.yml
+    with:
+      source-code-path: src/webapi
+
+  security:
+    needs: dependency-check
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/security.yml
+    with:
+      source-code-path: src/webapi
+
+  test:
+    needs: security
+    uses: ./.github/workflows/test.yml
+    with:
+      source-code-path: src/webapi
+
+  code-coverage:
+    needs: test
+    uses: ./.github/workflows/code-coverage.yml
+    with:
+      source-code-path: src/webapi
+
+  dockerize:
+    needs: code-coverage
+    uses: ./.github/workflows/dockerize.yml
+    with:
+      source-code-path: src/webapi
+      docker-image: prasadhonrao/sportiverse-webapi:dev
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  vulnerability-scan:
+    needs: dockerize
+    uses: ./.github/workflows/vulnerability-scan.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapi:dev
+
+  deploy-to-dev:
+    needs: vulnerability-scan
+    uses: ./.github/workflows/azure-app-service-deploy.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapi:dev
+      azure-app-service-name: sportiverse-webapi
+      deployment-slot: dev
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  deploy-to-prod:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/azure-app-service-deploy.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapi
+      azure-app-service-name: sportiverse-webapi
+      deployment-slot: production
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  gmail-notify:
+    uses: ./.github/workflows/gmail-notify.yml
+    needs: [deploy-to-dev, deploy-to-prod]
+    if: always() # Always run this job even if the previous jobs fail
+    with:
+      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
+      repository: ${{ github.repository }}
+      branch: ${{ github.ref }}
+      commit: ${{ github.sha }}
+      actor: ${{ github.actor }}
+      workflow: ${{ github.workflow }}
+      job: ${{ github.job }}
+      run_id: ${{ github.run_id }}
+      run_number: ${{ github.run_number }}
+    secrets:
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+  teams-notify:
+    needs: [deploy-to-dev, deploy-to-prod]
+    uses: ./.github/workflows/teams-notify.yml
+    if: always() # Always run this job even if the previous jobs fail
+    with:
+      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
+      repository: ${{ github.repository }}
+      branch: ${{ github.ref_name }}
+      commit: ${{ github.sha }}
+      run_id: ${{ github.run_id }}
+    secrets:
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}

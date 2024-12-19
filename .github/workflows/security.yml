@@ -1,0 +1,48 @@
+name: Security Check
+
+on:
+  workflow_call:
+    inputs:
+      source-code-path:
+        description: ''
+        required: true
+        type: string
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ inputs.source-code-path }}-${{ hashFiles('${{ inputs.source-code-path }}/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ inputs.source-code-path }}-
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ${{inputs.source-code-path}}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: '+security-and-quality'
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

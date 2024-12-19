@@ -10,7 +10,7 @@ import Loader from '../components/Loader';
 
 import { useProfileMutation } from '../slices/usersApiSlice';
 import { useGetMyOrdersQuery } from '../slices/ordersApiSlice';
-import { addUserToLocalStorage } from '../slices/authSlice';
+import { setCredentials } from '../slices/authSlice';
 
 const ProfilePage = () => {
   const [name, setName] = useState('');
@@ -44,7 +44,7 @@ const ProfilePage = () => {
           email,
           password,
         }).unwrap();
-        dispatch(addUserToLocalStorage({ ...res }));
+        dispatch(setCredentials({ ...res }));
         toast.success('Profile updated successfully');
       } catch (err) {
         toast.error(err?.data?.message || err.error);
