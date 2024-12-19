@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'src/webapp/**'
-      - '.github/workflows/webapp-ci-cd-dev.yml'
+      - '.github/workflows/webapp-ci-cd.yml'
   workflow_dispatch:
 
 jobs:
