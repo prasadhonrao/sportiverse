@@ -1,13 +1,16 @@
-name: Web API Dev CI & CD
+name: Web API CI & CD
 
 on:
   push:
-    branches:
-      - dev
     paths:
       - 'src/webapi/**'
-      - '.github/workflows/webapi-ci-cd-dev.yml'
+      - '.github/workflows/webapi-ci-cd.yml'
   workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 jobs:
   lint:
@@ -59,7 +62,7 @@ jobs:
     with:
       docker-image: prasadhonrao/sportiverse-webapi:dev
 
-  deploy:
+  deploy-to-dev:
     needs: vulnerability-scan
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
@@ -69,12 +72,22 @@ jobs:
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
+  deploy-to-prod:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/azure-app-service-deploy.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapi
+      azure-app-service-name: sportiverse-webapi
+      deployment-slot: production
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
   gmail-notify:
     uses: ./.github/workflows/gmail-notify.yml
-    needs: deploy
+    needs: [deploy-to-dev, deploy-to-prod]
     if: always() # Always run this job even if the previous jobs fail
     with:
-      status: ${{ needs.deploy.result }}
+      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
       repository: ${{ github.repository }}
       branch: ${{ github.ref }}
       commit: ${{ github.sha }}
@@ -89,11 +102,11 @@ jobs:
       NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
 
   teams-notify:
-    needs: deploy
+    needs: [deploy-to-dev, deploy-to-prod]
     uses: ./.github/workflows/teams-notify.yml
     if: always() # Always run this job even if the previous jobs fail
     with:
-      status: ${{ needs.deploy.result }}
+      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
       repository: ${{ github.repository }}
       branch: ${{ github.ref_name }}
       commit: ${{ github.sha }}
