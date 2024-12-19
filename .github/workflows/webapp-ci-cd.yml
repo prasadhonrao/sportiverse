@@ -1,9 +1,7 @@
-name: Web App Dev CI & CD
+name: Web App CI & CD
 
 on:
   push:
-    branches:
-      - dev
     paths:
       - 'src/webapp/**'
       - '.github/workflows/webapp-ci-cd-dev.yml'
@@ -50,7 +48,7 @@ jobs:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
-  deploy:
+  deploy-to-dev:
     needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
@@ -60,12 +58,22 @@ jobs:
     secrets:
       AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
+  deploy-to-prod:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/azure-app-service-deploy.yml
+    with:
+      docker-image: prasadhonrao/sportiverse-webapp
+      azure-app-service-name: sportiverse-webapp
+      deployment-slot: production
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
   gmail-notify:
     uses: ./.github/workflows/gmail-notify.yml
-    needs: deploy
+    needs: [deploy-to-dev, deploy-to-prod]
     if: always() # Always run this job even if the previous jobs fail
     with:
-      status: ${{ needs.deploy.result }}
+      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
       repository: ${{ github.repository }}
       branch: ${{ github.ref }}
       commit: ${{ github.sha }}
