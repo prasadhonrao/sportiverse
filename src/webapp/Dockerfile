@@ -21,6 +21,9 @@ FROM nginx:1.25-alpine AS production
 # Copy built assets from the build stage to Nginx's static content directory
 COPY --from=build /usr/src/app/build /usr/share/nginx/html
 
+# Copy the Nginx configuration file to the container
+COPY nginx.conf /etc/nginx/nginx.conf
+
 # Expose the default Nginx port
 EXPOSE 80
 
