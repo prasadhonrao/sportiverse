@@ -60,6 +60,7 @@ jobs:
 
   deploy-to-prod:
     if: github.ref == 'refs/heads/main'
+    needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
       docker-image: prasadhonrao/sportiverse-webapp
