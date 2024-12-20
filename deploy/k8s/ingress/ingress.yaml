@@ -4,7 +4,10 @@ metadata:
   name: sportiverse-ingress
   namespace: sportiverse-namespace
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
+    nginx.ingress.kubernetes.io/cors-allow-origin: 'http://sportiverse.webapp'
+    nginx.ingress.kubernetes.io/cors-allow-methods: 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
+    nginx.ingress.kubernetes.io/cors-allow-credentials: 'true'
 spec:
   ingressClassName: nginx
   rules:

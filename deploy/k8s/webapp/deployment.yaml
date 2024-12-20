@@ -26,10 +26,10 @@ spec:
           resources:
             limits:
               memory: '2Gi'
-              cpu: '2'
+              cpu: '1'
             requests:
               memory: '1Gi'
-              cpu: '1'
+              cpu: '500m'
           volumeMounts:
             - name: config-volume
               mountPath: /usr/share/nginx/html/config
