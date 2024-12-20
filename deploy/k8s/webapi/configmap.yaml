@@ -4,5 +4,9 @@ metadata:
   name: sportiverse-webapi-configmap
   namespace: sportiverse-namespace
 data:
+  MONGODB_HOST: 'sportiverse-db-service'
+  MONGODB_PORT: '27017'
+  MONGODB_DB_NAME: 'sportiverse-db'
+  MONGODB_DB_PARAMS: 'authSource=admin'
   PAGINATION_LIMIT: '10'
   UPLOAD_PATH: '/uploads'

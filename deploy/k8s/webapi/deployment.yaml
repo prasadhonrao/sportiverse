@@ -6,7 +6,7 @@ metadata:
   labels:
     app: sportiverse-webapi
 spec:
-  replicas: 1
+  replicas: 2
   minReadySeconds: 5
   progressDeadlineSeconds: 60
   revisionHistoryLimit: 10
@@ -36,13 +36,33 @@ spec:
             - name: MONGODB_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: sportiverse-webapi-secret
+                  name: sportiverse-webapi-configmap
                   key: MONGODB_HOST
             - name: MONGODB_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: sportiverse-webapi-secret
+                  name: sportiverse-webapi-configmap
                   key: MONGODB_PORT
+            - name: MONGODB_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: sportiverse-webapi-configmap
+                  key: MONGODB_DB_NAME
+            - name: MONGODB_DB_PARAMS
+              valueFrom:
+                configMapKeyRef:
+                  name: sportiverse-webapi-configmap
+                  key: MONGODB_DB_PARAMS
+            - name: PAGINATION_LIMIT
+              valueFrom:
+                configMapKeyRef:
+                  name: sportiverse-webapi-configmap
+                  key: PAGINATION_LIMIT
+            - name: UPLOAD_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: sportiverse-webapi-configmap
+                  key: UPLOAD_PATH
             - name: MONGODB_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -53,16 +73,6 @@ spec:
                 secretKeyRef:
                   name: sportiverse-webapi-secret
                   key: MONGODB_PASSWORD
-            - name: MONGODB_DB_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: sportiverse-webapi-secret
-                  key: MONGODB_DB_NAME
-            - name: MONGODB_DB_PARAMS
-              valueFrom:
-                configMapKeyRef:
-                  name: sportiverse-webapi-secret
-                  key: MONGODB_DB_PARAMS
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -83,16 +93,6 @@ spec:
                 secretKeyRef:
                   name: sportiverse-webapi-secret
                   key: PAYPAL_API_URL
-            - name: PAGINATION_LIMIT
-              valueFrom:
-                secretKeyRef:
-                  name: sportiverse-webapi-configmap
-                  key: PAGINATION_LIMIT
-            - name: UPLOAD_PATH
-              valueFrom:
-                secretKeyRef:
-                  name: sportiverse-webapi-configmap
-                  key: UPLOAD_PATH
           resources:
             limits:
               memory: '2Gi'

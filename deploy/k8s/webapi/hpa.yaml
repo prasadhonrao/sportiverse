@@ -7,7 +7,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sportiverse-webapi-deployment # Replace with actual WebAPI deployment name
+    name: sportiverse-webapi-deployment
   minReplicas: 2
   maxReplicas: 10
   metrics:

@@ -44,11 +44,11 @@ spec:
                   key: MONGODB_PASSWORD
           resources:
             requests:
-              memory: '1Gi'
-              cpu: '500m'
-            limits:
-              memory: '2Gi'
+              memory: '4Gi'
               cpu: '1'
+            limits:
+              memory: '8Gi'
+              cpu: '2'
           volumeMounts:
             - name: mongodb-volume
               mountPath: /data/db # Path to store the MongoDB data. This is the default path for MongoDB
