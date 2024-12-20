@@ -6,7 +6,6 @@ metadata:
   labels:
     app: sportiverse-db
 spec:
-  serviceName: 'sportiverse-statefulset-db-service' # Headless service for StatefulSet
   replicas: 1
   selector:
     matchLabels:
@@ -52,7 +51,23 @@ spec:
               cpu: '1'
           volumeMounts:
             - name: mongodb-volume
-              mountPath: /data/sportiverse-db
+              mountPath: /data/db # Path to store the MongoDB data. This is the default path for MongoDB
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - db.adminCommand('ping')
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - db.adminCommand('ping')
+            initialDelaySeconds: 10
+            periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
         name: mongodb-volume # Name of the PVC to be created

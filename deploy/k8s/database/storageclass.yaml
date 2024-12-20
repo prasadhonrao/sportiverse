@@ -5,6 +5,5 @@ metadata:
 provisioner: kubernetes.io/azure-disk # This is for Azure Disk (block storage)
 parameters:
   skuname: Premium_LRS # Azure Storage type (Premium Managed Disks)
-  resourceGroup: sportiverse-rg # Azure Resource Group
 reclaimPolicy: Retain # Define how volumes should behave when released from PVC (Retain or Delete)
 volumeBindingMode: WaitForFirstConsumer # Wait for the consumer (PVC) to be scheduled before provisioning
