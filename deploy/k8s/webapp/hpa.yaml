@@ -17,3 +17,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 50 # Scale based on 50% CPU utilization
+
+# this is same as
+# kubectl autoscale deployment sportiverse-webapp-deployment --cpu-percent=50 --min=2 --max=10
