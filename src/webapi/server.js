@@ -27,8 +27,13 @@ const app = express();
 app.use(express.json()); // Body parser is used to parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // URL parser is used to parse URL-encoded bodies
 app.use(cookieParser()); // Cookie parser is used to parse cookies
+
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+
+// log the allowed origins
+console.log('Allowed origins: ', allowedOrigins);
+
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
