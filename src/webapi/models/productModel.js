@@ -111,6 +111,8 @@ productSchema.virtual('totalRatings').get(function () {
   return this.ratings?.length || 0;
 });
 
+productSchema.index({ rating: 1 }); // Create an ascending index on the `rating` field
+
 const Product = mongoose.model('Product', productSchema);
 
 export default Product;

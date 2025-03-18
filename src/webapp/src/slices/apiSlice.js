@@ -13,10 +13,10 @@ const baseQueryWithAuth = async (args, api, extraOptions) => {
 
   if (!baseUrl) {
     console.log('baseUrl not found');
-    baseUrl = 'http://localhost:5000';
+    baseUrl = 'http://localhost:8888';
   }
 
-  // console.log('baseUrl:', baseUrl);
+  console.log('baseUrl:', baseUrl);
 
   const baseQuery = fetchBaseQuery({
     baseUrl,
