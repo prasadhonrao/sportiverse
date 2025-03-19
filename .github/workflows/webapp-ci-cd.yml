@@ -53,15 +53,15 @@ jobs:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
-  deploy-to-dev:
-    needs: dockerize
-    uses: ./.github/workflows/azure-app-service-deploy.yml
-    with:
-      docker-image: prasadhonrao/sportiverse-webapp:dev
-      azure-app-service-name: sportiverse-webapp
-      deployment-slot: dev
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+  # deploy-to-dev:
+  #   needs: dockerize
+  #   uses: ./.github/workflows/azure-app-service-deploy.yml
+  #   with:
+  #     docker-image: prasadhonrao/sportiverse-webapp:dev
+  #     azure-app-service-name: sportiverse-webapp
+  #     deployment-slot: dev
+  #   secrets:
+  #     AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   deploy-to-prod:
     if: github.ref == 'refs/heads/main'
@@ -76,10 +76,12 @@ jobs:
 
   gmail-notify:
     uses: ./.github/workflows/gmail-notify.yml
-    needs: [deploy-to-dev, deploy-to-prod]
+    # needs: [deploy-to-dev, deploy-to-prod]
+    needs: [deploy-to-prod]
     if: always() # Always run this job even if the previous jobs fail
     with:
-      status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
+      # status: ${{ needs.deploy-to-dev.result || needs.deploy-to-prod.result }}
+      status: ${{ needs.deploy-to-prod.result }}
       repository: ${{ github.repository }}
       branch: ${{ github.ref }}
       commit: ${{ github.sha }}
