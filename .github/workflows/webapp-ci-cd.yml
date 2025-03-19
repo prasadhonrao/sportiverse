@@ -64,7 +64,6 @@ jobs:
   #     AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
   deploy-to-prod:
-    if: github.ref == 'refs/heads/main'
     needs: dockerize
     uses: ./.github/workflows/azure-app-service-deploy.yml
     with:
