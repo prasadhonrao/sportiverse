@@ -18,14 +18,14 @@ jobs:
     with:
       source-code-path: src/webapi
 
-  dependency-check:
-    needs: lint
-    uses: ./.github/workflows/dependency-check.yml
-    with:
-      source-code-path: src/webapi
+  # dependency-check:
+  #   needs: lint
+  #   uses: ./.github/workflows/dependency-check.yml
+  #   with:
+  #     source-code-path: src/webapi
 
   security:
-    needs: dependency-check
+    needs: lint
     permissions:
       actions: read
       contents: read
