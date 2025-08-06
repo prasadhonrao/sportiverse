@@ -43,9 +43,19 @@ const corsOptions = {
     }
   },
   credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow these headers
 };
 
 app.use(cors(corsOptions)); // Enable CORS with dynamic origins
+
+// Set dummy header to test response
+app.use((req, res, next) => {
+  res.setHeader('X-Server', 'Node.js');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  console.log('Response Headers:', res.getHeaders()); // Log headers
+  next();
+});
 
 // Connect to MongoDB
 connectDB();

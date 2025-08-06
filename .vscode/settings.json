@@ -1,3 +1,9 @@
 {
-  "cSpell.words": ["configmap", "INITDB", "mongosh", "statefulset"]
+  "cSpell.words": [
+    "configmap",
+    "INITDB",
+    "mongosh",
+    "statefulset"
+  ],
+  "postman.settings.dotenv-detection-notification-visibility": false
 }
