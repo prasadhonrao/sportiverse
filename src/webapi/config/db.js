@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const connectDB = async () => {
   try {
     const {
+      MONGODB_CONNECTION_SCHEME = '',
       MONGODB_HOST = '',
       MONGODB_PORT = '',
       MONGODB_USERNAME = '',
@@ -13,6 +14,7 @@ const connectDB = async () => {
 
     // Log environment variables for debugging
     console.log('Environment variables:');
+    console.log(`MONGODB_CONNECTION_SCHEME: ${MONGODB_CONNECTION_SCHEME}`.yellow.bold);
     console.log(`MONGODB_HOST: ${MONGODB_HOST}`.yellow.bold);
     console.log(`MONGODB_PORT: ${MONGODB_PORT}`.yellow.bold);
     console.log(`MONGODB_USERNAME: ${MONGODB_USERNAME}`.yellow.bold);
@@ -24,7 +26,7 @@ const connectDB = async () => {
       throw new Error('MONGODB_HOST and MONGODB_DB_NAME must be defined');
     }
 
-    let mongodb_uri = 'mongodb://';
+    let mongodb_uri = `${MONGODB_CONNECTION_SCHEME}://`;
 
     if (MONGODB_USERNAME) {
       mongodb_uri += `${MONGODB_USERNAME}:${MONGODB_PASSWORD}@`;

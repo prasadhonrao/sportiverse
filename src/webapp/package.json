@@ -2,7 +2,6 @@
   "name": "sportiverse-web-app",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:5000",
   "dependencies": {
     "@paypal/react-paypal-js": "^7.8.2",
     "@reduxjs/toolkit": "^2.3.0",

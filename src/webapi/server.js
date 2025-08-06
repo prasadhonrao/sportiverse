@@ -27,8 +27,13 @@ const app = express();
 app.use(express.json()); // Body parser is used to parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // URL parser is used to parse URL-encoded bodies
 app.use(cookieParser()); // Cookie parser is used to parse cookies
+
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+
+// log the allowed origins
+console.log('Allowed origins: ', allowedOrigins);
+
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -38,9 +43,19 @@ const corsOptions = {
     }
   },
   credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow these headers
 };
 
 app.use(cors(corsOptions)); // Enable CORS with dynamic origins
+
+// Set dummy header to test response
+app.use((req, res, next) => {
+  res.setHeader('X-Server', 'Node.js');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  console.log('Response Headers:', res.getHeaders()); // Log headers
+  next();
+});
 
 // Connect to MongoDB
 connectDB();
