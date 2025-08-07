@@ -1,0 +1,38 @@
+# Environment files with secrets
+.env
+*.env.local
+*.env.production
+*.env.development
+
+# Azure CLI outputs
+*.azd/
+.azure/
+
+# Deployment logs
+deployment-*.log
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+
+# IDE files
+.vscode/settings.json
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Compiled Bicep files (these are generated and not needed in source control)
+*.json
+!*parameters.json
+!*bicepparam.json
+
+# Parameters files with secrets (if you create them)
+*secrets.parameters.json
+*secrets.bicepparam

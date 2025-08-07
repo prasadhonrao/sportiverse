@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "prod"
+    },
+    "location": {
+      "value": "uksouth"
+    },
+    "appName": {
+      "value": "sportiverse"
+    },
+    "resourceGroupName": {
+      "value": "sportiverse-rg-prod"
+    },
+    "appServicePlanSku": {
+      "value": "P2v2"
+    },
+    "nodeVersion": {
+      "value": "18-lts"
+    },
+    "enableZoneRedundancy": {
+      "value": false
+    },
+    "paypalClientId": {
+      "value": "test-paypal-client-id"
+    },
+    "paypalAppSecret": {
+      "value": "test-paypal-app-secret"
+    },
+    "paypalApiUrl": {
+      "value": "https://api-m.sandbox.paypal.com"
+    },
+    "jwtSecret": {
+      "value": "test-jwt-secret-sportiverse-2024"
+    }
+  }
+}
