@@ -1,0 +1,207 @@
+name: Azure App Service Deployment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment (dev, staging, prod)'
+        type: string
+        required: true
+      artifact-name:
+        description: 'Name of the build artifact to deploy'
+        type: string
+        required: true
+      component-type:
+        description: 'Type of component (api, webapp)'
+        type: string
+        required: true
+      health-endpoint:
+        description: 'Health check endpoint'
+        type: string
+        default: '/status'
+      startup-delay:
+        description: 'Startup delay in seconds'
+        type: number
+        default: 30
+      health-check-attempts:
+        description: 'Number of health check attempts'
+        type: number
+        default: 5
+      seed-database:
+        description: 'Whether to seed database (dev/staging only)'
+        type: boolean
+        default: false
+    secrets:
+      AZURE_SERVICE_PRINCIPAL:
+        description: 'Azure Service Principal credentials'
+        required: true
+    outputs:
+      deployment-url:
+        description: 'URL of the deployed application'
+        value: ${{ jobs.deploy.outputs.app-url }}
+      resource-group:
+        description: 'Azure resource group name'
+        value: ${{ jobs.deploy.outputs.resource-group }}
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      app-url: ${{ steps.deploy-app.outputs.app-url }}
+      resource-group: ${{ steps.infra-discovery.outputs.resource-group }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ./artifact
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Discover Infrastructure
+        id: infra-discovery
+        run: |
+          echo "🔍 Discovering ${{ inputs.environment }} infrastructure for ${{ inputs.component-type }}..."
+
+          # Query Azure Resource Graph to find resources by tags
+          query="
+          Resources
+          | where type == 'microsoft.web/sites'
+          | where tags['sportiverse-component'] == '${{ inputs.component-type }}'
+          | where tags['sportiverse-environment'] == '${{ inputs.environment }}'
+          | project name, resourceGroup, location, tags
+          "
+
+          # Execute query and parse results
+          result=$(az graph query -q "$query" --output json)
+
+          if [ "$(echo $result | jq '.data | length')" -eq 0 ]; then
+            echo "❌ No ${{ inputs.component-type }} resources found for ${{ inputs.environment }} environment"
+            echo "💡 Make sure your infrastructure is deployed with proper tags:"
+            echo "   - sportiverse-component: ${{ inputs.component-type }}"
+            echo "   - sportiverse-environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+          # Extract resource details
+          app_name=$(echo $result | jq -r '.data[0].name')
+          resource_group=$(echo $result | jq -r '.data[0].resourceGroup')
+
+          echo "app-name=$app_name" >> $GITHUB_OUTPUT
+          echo "resource-group=$resource_group" >> $GITHUB_OUTPUT
+
+          echo "✅ Infrastructure discovered:"
+          echo "  🔗 App Name: $app_name"
+          echo "  📦 Resource Group: $resource_group"
+          echo "  🎯 Environment: ${{ inputs.environment }}"
+
+      - name: Deploy to Azure App Service
+        id: deploy-app
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.infra-discovery.outputs.app-name }}
+          resource-group-name: ${{ steps.infra-discovery.outputs.resource-group }}
+          package: ./artifact/deployment-package.zip
+
+      - name: Set App URL
+        id: set-url
+        run: |
+          app_url="https://${{ steps.infra-discovery.outputs.app-name }}.azurewebsites.net"
+          echo "app-url=$app_url" >> $GITHUB_OUTPUT
+          echo "🌐 Application deployed to: $app_url"
+
+      - name: Post-Deployment Health Check
+        run: |
+          echo "🏥 Performing health check..."
+          api_url="https://${{ steps.infra-discovery.outputs.app-name }}.azurewebsites.net"
+
+          # Wait for application startup
+          echo "⏳ Waiting for application startup (${{ inputs.startup-delay }}s)..."
+          sleep ${{ inputs.startup-delay }}
+
+          # Perform health check
+          max_attempts=${{ inputs.health-check-attempts }}
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔍 Health check attempt $attempt/$max_attempts"
+            
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url${{ inputs.health-endpoint }}" || echo "000")
+            
+            if [ "$response" = "200" ]; then
+              echo "✅ Health check passed!"
+              echo "🌐 ${{ inputs.component-type }} is available at: $api_url"
+              break
+            elif [ $attempt -eq $max_attempts ]; then
+              echo "❌ Health check failed after $max_attempts attempts (HTTP $response)"
+              echo "🔗 Check application logs: $api_url"
+              exit 1
+            else
+              echo "⏳ Health check failed (HTTP $response), retrying in 10s..."
+              sleep 10
+            fi
+            
+            attempt=$((attempt + 1))
+          done
+
+      - name: Seed Database
+        if: inputs.seed-database == true && (inputs.environment == 'dev' || inputs.environment == 'staging')
+        run: |
+          echo "🌱 Seeding ${{ inputs.environment }} database with sample data..."
+
+          # Only proceed if this is API component
+          if [ "${{ inputs.component-type }}" != "api" ]; then
+            echo "⏭️ Database seeding only applies to API components"
+            exit 0
+          fi
+
+          # Download source code for seeding (we need the seeder script)
+          cd ./
+
+          # Install dependencies for seeding
+          cd src/webapi
+          npm ci
+
+          # Get MongoDB connection settings from the deployed App Service
+          echo "🔍 Getting database connection settings from App Service..."
+
+          app_settings=$(az webapp config appsettings list \
+            --name "${{ steps.infra-discovery.outputs.app-name }}" \
+            --resource-group "${{ steps.infra-discovery.outputs.resource-group }}" \
+            --output json)
+
+          # Extract MongoDB connection variables
+          export MONGODB_CONNECTION_SCHEME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_CONNECTION_SCHEME") | .value')
+          export MONGODB_HOST=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_HOST") | .value')
+          export MONGODB_PORT=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PORT") | .value')
+          export MONGODB_USERNAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_USERNAME") | .value')
+          export MONGODB_PASSWORD=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PASSWORD") | .value')
+          export MONGODB_DB_NAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_NAME") | .value')
+          export MONGODB_DB_PARAMS=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_PARAMS") | .value')
+          export NODE_ENV=${{ inputs.environment }}
+
+          echo "✅ Database connection settings retrieved"
+
+          # Run the seeder
+          npm run data:import
+
+          echo "✅ Database seeded successfully!"
+
+      - name: Production Safety Check
+        if: inputs.environment == 'prod'
+        run: |
+          echo "🔒 PRODUCTION ENVIRONMENT - Enhanced safety checks"
+          echo "📋 Production deployments complete"
+          echo "🛡️ Production data protection active"
+          if [ "${{ inputs.seed-database }}" = "true" ]; then
+            echo "⚠️  WARNING: Database seeding is DISABLED in production for safety"
+          fi

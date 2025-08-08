@@ -1,0 +1,247 @@
+name: WebAPI CI/CD Pipeline
+
+on:
+  push:
+    paths:
+      - 'src/webapi/**'
+      - '.github/workflows/webapi-cd.yml'
+      - '.github/workflows/_templates/**'
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+          - 'prod'
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+      seed_database:
+        description: 'Seed database with sample data'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment regardless of branch'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '22'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  id-token: write
+
+jobs:
+  # ============================================================================
+  # CI PIPELINE - REUSABLE
+  # ============================================================================
+
+  ci:
+    name: 🔍 Continuous Integration
+    uses: ./.github/workflows/_templates/node-ci.yml
+    with:
+      node-version: '22'
+      working-directory: 'src/webapi'
+      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
+      package-manager: 'npm'
+
+  # ============================================================================
+  # DETERMINE DEPLOYMENT STRATEGY
+  # ============================================================================
+
+  determine-deployment:
+    name: 🎯 Determine Deployment Strategy
+    runs-on: ubuntu-latest
+    needs: ci
+    if: needs.ci.outputs.quality-passed == 'true'
+    outputs:
+      deploy-dev: ${{ steps.strategy.outputs.deploy-dev }}
+      deploy-staging: ${{ steps.strategy.outputs.deploy-staging }}
+      deploy-prod: ${{ steps.strategy.outputs.deploy-prod }}
+      target-environment: ${{ steps.strategy.outputs.target-environment }}
+
+    steps:
+      - name: Determine Deployment Strategy
+        id: strategy
+        run: |
+          echo "🎯 Determining deployment strategy..."
+          echo "📋 Branch: ${{ github.ref }}"
+          echo "🎛️ Manual Environment: ${{ github.event.inputs.environment }}"
+          echo "🔄 Force Deploy: ${{ github.event.inputs.force_deploy }}"
+
+          # Branch-based deployment strategy
+          deploy_dev="false"
+          deploy_staging="false"
+          deploy_prod="false"
+          target_env=""
+
+          if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            # Manual override
+            target_env="${{ github.event.inputs.environment }}"
+            echo "🔄 Force deployment to: $target_env"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual workflow dispatch
+            target_env="${{ github.event.inputs.environment }}"
+            echo "🎛️ Manual deployment to: $target_env"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            # Main branch -> Production
+            target_env="prod"
+            echo "🚀 Main branch detected -> Production deployment"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            # Develop branch -> Staging
+            target_env="staging"
+            echo "🔄 Develop branch detected -> Staging deployment"
+          elif [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
+            # Feature branch -> Development
+            target_env="dev"
+            echo "🛠️ Feature branch detected -> Development deployment"
+          else
+            # Default to development
+            target_env="dev"
+            echo "📋 Default -> Development deployment"
+          fi
+
+          # Set deployment flags
+          if [ "$target_env" = "dev" ]; then
+            deploy_dev="true"
+          elif [ "$target_env" = "staging" ]; then
+            deploy_staging="true"
+          elif [ "$target_env" = "prod" ]; then
+            deploy_prod="true"
+          fi
+
+          # Output results
+          echo "deploy-dev=$deploy_dev" >> $GITHUB_OUTPUT
+          echo "deploy-staging=$deploy_staging" >> $GITHUB_OUTPUT
+          echo "deploy-prod=$deploy_prod" >> $GITHUB_OUTPUT
+          echo "target-environment=$target_env" >> $GITHUB_OUTPUT
+
+          echo "✅ Deployment strategy determined"
+          echo "🎯 Target: $target_env"
+
+  # ============================================================================
+  # DEVELOPMENT DEPLOYMENT
+  # ============================================================================
+
+  deploy-dev:
+    name: 🚀 Deploy to Development
+    if: needs.determine-deployment.outputs.deploy-dev == 'true'
+    needs: [ci, determine-deployment]
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'dev'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'api'
+      health-endpoint: '/status'
+      startup-delay: 30
+      health-check-attempts: 5
+      seed-database: ${{ github.event.inputs.seed_database == 'true' }}
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  # ============================================================================
+  # STAGING DEPLOYMENT
+  # ============================================================================
+
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    if: needs.determine-deployment.outputs.deploy-staging == 'true'
+    needs: [ci, determine-deployment]
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'staging'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'api'
+      health-endpoint: '/status'
+      startup-delay: 45
+      health-check-attempts: 8
+      seed-database: ${{ github.event.inputs.seed_database == 'true' }}
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  # ============================================================================
+  # PRODUCTION DEPLOYMENT
+  # ============================================================================
+
+  deploy-prod:
+    name: 🚀 Deploy to Production
+    if: needs.determine-deployment.outputs.deploy-prod == 'true'
+    needs: [ci, determine-deployment]
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'prod'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'api'
+      health-endpoint: '/status'
+      startup-delay: 60
+      health-check-attempts: 10
+      seed-database: false # Never seed production
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  # ============================================================================
+  # POST-DEPLOYMENT VERIFICATION
+  # ============================================================================
+
+  smoke-tests:
+    name: 💨 Smoke Tests
+    needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod]
+    if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
+    uses: ./.github/workflows/_templates/health-check.yml
+    with:
+      application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
+      health-endpoint: '/status'
+      environment: ${{ needs.determine-deployment.outputs.target-environment }}
+      component-type: 'api'
+      run-smoke-tests: true
+
+  # ============================================================================
+  # NOTIFICATIONS
+  # ============================================================================
+
+  notify-success:
+    name: 📧 Success Notification
+    runs-on: ubuntu-latest
+    needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod, smoke-tests]
+    if: success() && always()
+    steps:
+      - name: Success Notification
+        run: |
+          echo "🎉 WebAPI deployment completed successfully!"
+          echo "📅 Timestamp: $(date)"
+          echo "🎯 Environment: ${{ needs.determine-deployment.outputs.target-environment }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "🌐 Application URL: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
+
+  notify-failure:
+    name: 🚨 Failure Notification
+    runs-on: ubuntu-latest
+    needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod]
+    if: failure() && always()
+    steps:
+      - name: Failure Notification
+        run: |
+          echo "🚨 WebAPI deployment failed!"
+          echo "📅 Timestamp: $(date)"
+          echo "🎯 Environment: ${{ needs.determine-deployment.outputs.target-environment }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "🔗 Debug workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "📋 Check logs for specific failure details"

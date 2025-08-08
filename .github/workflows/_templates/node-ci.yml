@@ -1,0 +1,174 @@
+name: Node.js CI Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        type: string
+        default: '22'
+      working-directory:
+        description: 'Working directory for the Node.js project'
+        type: string
+        required: true
+      skip-tests:
+        description: 'Skip running tests'
+        type: boolean
+        default: false
+      package-manager:
+        description: 'Package manager to use (npm, yarn, pnpm)'
+        type: string
+        default: 'npm'
+    outputs:
+      build-artifact-name:
+        description: 'Name of the build artifact uploaded'
+        value: ${{ jobs.ci.outputs.artifact-name }}
+      quality-passed:
+        description: 'Whether quality gates passed'
+        value: ${{ jobs.ci.outputs.quality-gate }}
+      test-results:
+        description: 'Test execution results'
+        value: ${{ jobs.ci.outputs.test-results }}
+
+jobs:
+  ci:
+    name: 🔍 CI Pipeline
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.upload-artifact.outputs.artifact-name }}
+      quality-gate: ${{ steps.quality-gate.outputs.passed }}
+      test-results: ${{ steps.test-summary.outputs.results }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.package-manager }}
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm ci
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn install --frozen-lockfile
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: Run ESLint
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          echo "🔍 Running ESLint..."
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm run lint
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn lint
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm lint
+          fi
+
+      - name: Run Security Audit
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          echo "🔒 Running security audit..."
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm audit --audit-level=moderate
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn audit --level moderate
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm audit --audit-level moderate
+          fi
+
+      - name: Run Unit Tests
+        if: inputs.skip-tests != true
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          echo "🧪 Running unit tests..."
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm test
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn test
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm test
+          fi
+
+      - name: Generate Test Coverage
+        if: inputs.skip-tests != true
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          echo "📊 Generating test coverage..."
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm run test:coverage
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn test:coverage
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm test:coverage
+          fi
+
+      - name: Upload Coverage Reports
+        if: inputs.skip-tests != true
+        uses: codecov/codecov-action@v4
+        with:
+          file: ${{ inputs.working-directory }}/coverage/lcov.info
+          flags: ${{ inputs.working-directory }}
+          name: ${{ inputs.working-directory }}-coverage
+
+      - name: Build Application
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          echo "📦 Building application for deployment..."
+
+          # Install production dependencies
+          if [ "${{ inputs.package-manager }}" = "npm" ]; then
+            npm ci --production
+          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+            yarn install --production --frozen-lockfile
+          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+            pnpm install --prod --frozen-lockfile
+          fi
+
+          # Create deployment package
+          echo "📦 Creating deployment package..."
+          zip -r ../deployment-package.zip . \
+            -x "node_modules/.cache/*" \
+               "coverage/*" \
+               "__tests__/*" \
+               "*.test.js" \
+               "*.spec.js" \
+               ".eslintrc*" \
+               "jest.config.js" \
+               "*.md"
+
+          echo "✅ Build completed successfully"
+
+      - name: Upload Build Artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.working-directory }}-build-${{ github.sha }}
+          path: ${{ inputs.working-directory }}/../deployment-package.zip
+          retention-days: 30
+
+      - name: Test Summary
+        id: test-summary
+        run: |
+          if [ "${{ inputs.skip-tests }}" = "true" ]; then
+            echo "⏭️ Tests skipped"
+            echo "results=skipped" >> $GITHUB_OUTPUT
+          else
+            echo "✅ All tests passed"
+            echo "results=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Quality Gate
+        id: quality-gate
+        run: |
+          echo "✅ Code quality checks passed"
+          echo "📊 All quality gates satisfied"
+          echo "passed=true" >> $GITHUB_OUTPUT
