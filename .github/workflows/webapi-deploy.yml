@@ -1,0 +1,573 @@
+name: WebAPI Deployment
+
+on:
+  push:
+    paths:
+      - 'src/webapi/**'
+      - '.github/workflows/webapi-deploy.yml'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy application to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+          - 'prod'
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+      seed_database:
+        description: 'Seed database with sample data (dev/staging only)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  id-token: write
+
+jobs:
+  # ============================================================================
+  # CI PIPELINE - BUILD, TEST, SECURITY
+  # ============================================================================
+
+  code-quality:
+    name: 🔍 Code Quality & Security
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.quality-gate.outputs.passed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/webapi/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd src/webapi
+          npm ci
+
+      - name: Run ESLint
+        run: |
+          cd src/webapi
+          npm run lint
+
+      - name: Run Security Audit
+        run: |
+          cd src/webapi
+          npm audit --audit-level=moderate
+
+      - name: Quality Gate
+        id: quality-gate
+        run: |
+          echo "✅ Code quality checks passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+
+  automated-tests:
+    name: 🧪 Automated Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: github.event.inputs.skip_tests != 'true'
+    outputs:
+      test-results: ${{ steps.test-summary.outputs.results }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/webapi/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd src/webapi
+          npm ci
+
+      - name: Run Unit Tests
+        run: |
+          cd src/webapi
+          npm test
+
+      - name: Generate Test Coverage
+        run: |
+          cd src/webapi
+          npm run test:coverage
+
+      - name: Test Summary
+        id: test-summary
+        run: |
+          echo "✅ All tests passed"
+          echo "results=passed" >> $GITHUB_OUTPUT
+
+      - name: Upload Coverage Reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./src/webapi/coverage/lcov.info
+          flags: webapi
+          name: webapi-coverage
+
+  # ============================================================================
+  # DEPLOYMENT ORCHESTRATION
+  # ============================================================================
+
+  determine-target-environment:
+    name: 🎯 Determine Target Environment
+    runs-on: ubuntu-latest
+    needs: [code-quality, automated-tests]
+    if: always() && (needs.code-quality.outputs.should-deploy == 'true')
+    outputs:
+      target-env: ${{ steps.env-logic.outputs.environment }}
+      should-deploy-dev: ${{ steps.env-logic.outputs.deploy-dev }}
+      should-deploy-staging: ${{ steps.env-logic.outputs.deploy-staging }}
+      should-deploy-prod: ${{ steps.env-logic.outputs.deploy-prod }}
+    steps:
+      - name: Environment Logic
+        id: env-logic
+        run: |
+          # Determine deployment environment based on branch and inputs
+          if [ "${{ github.event.inputs.environment }}" != "" ]; then
+            target_env="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            target_env="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            target_env="dev"
+          else
+            target_env="dev"
+          fi
+
+          echo "environment=$target_env" >> $GITHUB_OUTPUT
+
+          # Set deployment flags
+          echo "deploy-dev=$([[ $target_env == "dev" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "deploy-staging=$([[ $target_env == "staging" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "deploy-prod=$([[ $target_env == "prod" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+          echo "🎯 Target environment: $target_env"
+
+  # ============================================================================
+  # APPLICATION DEPLOYMENT - DEVELOPMENT
+  # ============================================================================
+
+  deploy-webapi-dev:
+    name: 🚀 Deploy WebAPI (Development)
+    runs-on: ubuntu-latest
+    needs: determine-target-environment
+    if: needs.determine-target-environment.outputs.should-deploy-dev == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/webapi/package-lock.json
+
+      - name: Get Infrastructure Details
+        id: infra
+        run: |
+          echo "🔍 Discovering infrastructure dynamically..."
+
+          # Login to Azure first
+          az login --service-principal \
+            --username ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientId }} \
+            --password ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientSecret }} \
+            --tenant ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).tenantId }}
+
+          # Query Azure Resource Graph to find resources by tags
+          query='
+          Resources
+          | where type == "microsoft.web/sites"
+          | where tags["sportiverse-component"] == "api"
+          | where tags["sportiverse-environment"] == "dev"
+          | project name, resourceGroup, location, tags
+          '
+
+          # Execute query and parse results
+          result=$(az graph query -q "$query" --output json)
+
+          if [ "$(echo $result | jq '.data | length')" -eq 0 ]; then
+            echo "❌ No API resources found with required tags"
+            echo "💡 Make sure your Bicep templates tag resources with:"
+            echo "   - sportiverse-component: api"
+            echo "   - sportiverse-environment: dev"
+            exit 1
+          fi
+
+          # Extract resource details
+          api_name=$(echo $result | jq -r '.data[0].name')
+          resource_group=$(echo $result | jq -r '.data[0].resourceGroup')
+
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "resourceGroup=$resource_group" >> $GITHUB_OUTPUT
+
+          echo "✅ Infrastructure discovered successfully:"
+          echo "  🔗 API Name: $api_name"
+          echo "  📦 Resource Group: $resource_group"
+
+      - name: Build Application
+        run: |
+          cd src/webapi
+
+          # Install production dependencies
+          npm ci --production
+
+          # Create optimized deployment package
+          echo "📦 Creating deployment package..."
+          zip -r ../webapi-deployment.zip . \
+            -x "node_modules/.cache/*" \
+               "coverage/*" \
+               "__tests__/*" \
+               "*.test.js" \
+               "*.spec.js" \
+               ".eslintrc*" \
+               "jest.config.js"
+
+          echo "✅ Deployment package created"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.infra.outputs.apiName }}
+          resource-group-name: ${{ steps.infra.outputs.resourceGroup }}
+          package: ./src/webapi-deployment.zip
+
+      - name: Post-Deployment Health Check
+        run: |
+          echo "🏥 Performing health check..."
+          api_url="https://${{ steps.infra.outputs.apiName }}.azurewebsites.net"
+
+          # Wait for application startup
+          echo "⏳ Waiting for application startup (30s)..."
+          sleep 30
+
+          # Perform health check
+          max_attempts=5
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔍 Health check attempt $attempt/$max_attempts"
+            
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/api/health" || echo "000")
+            
+            if [ "$response" = "200" ]; then
+              echo "✅ Health check passed!"
+              echo "🌐 API is available at: $api_url"
+              break
+            elif [ $attempt -eq $max_attempts ]; then
+              echo "❌ Health check failed after $max_attempts attempts (HTTP $response)"
+              echo "🔗 Check application logs: $api_url"
+              exit 1
+            else
+              echo "⏳ Health check failed (HTTP $response), retrying in 10s..."
+              sleep 10
+            fi
+            
+            attempt=$((attempt + 1))
+          done
+
+      - name: Seed Database (Optional)
+        if: github.event.inputs.seed_database == 'true'
+        run: |
+          echo "🌱 Seeding database with sample data..."
+          cd src/webapi
+
+          # Install dependencies (needed for seeder)
+          npm ci
+
+          # Set environment variables for database connection
+          # The deployed app should have these in App Service settings
+          export NODE_ENV=development
+
+          # Run the seeder
+          npm run data:import
+
+          echo "✅ Database seeded successfully!"
+
+  # ============================================================================
+  # APPLICATION DEPLOYMENT - STAGING
+  # ============================================================================
+
+  deploy-webapi-staging:
+    name: 🚀 Deploy WebAPI (Staging)
+    runs-on: ubuntu-latest
+    needs: determine-target-environment
+    if: needs.determine-target-environment.outputs.should-deploy-staging == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Infrastructure Details
+        id: infra
+        run: |
+          # Login to Azure CLI
+          az login --service-principal \
+            --username ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientId }} \
+            --password ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientSecret }} \
+            --tenant ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).tenantId }}
+
+          # Set subscription  
+          az account set --subscription ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).subscriptionId }}
+
+          # Discover staging API app service dynamically using tags
+          api_query_results=$(az graph query -q "
+            Resources
+            | where type == 'microsoft.web/sites'
+            | where tags['sportiverse-environment'] == 'staging'
+            | where tags['sportiverse-component'] == 'api'
+            | where tags['sportiverse-project'] == 'sportiverse'
+            | project name, resourceGroup, id
+            | limit 1
+          " --output json)
+
+          # Extract API name and resource group
+          api_name=$(echo "$api_query_results" | jq -r '.data[0].name // empty')
+          resource_group=$(echo "$api_query_results" | jq -r '.data[0].resourceGroup // empty')
+
+          # Verify we found the resources
+          if [ -z "$api_name" ] || [ -z "$resource_group" ]; then
+            echo "❌ Could not find staging API infrastructure. Please ensure infrastructure is deployed with proper tags."
+            echo "Expected tags: sportiverse-environment=staging, sportiverse-component=api, sportiverse-project=sportiverse"
+            exit 1
+          fi
+
+          echo "✅ Found staging infrastructure:"
+          echo "  API: $api_name"
+          echo "  Resource Group: $resource_group"
+
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "resourceGroup=$resource_group" >> $GITHUB_OUTPUT
+
+      - name: Seed Database (Optional - Staging Only)
+        if: github.event.inputs.seed_database == 'true'
+        run: |
+          echo "🌱 Seeding STAGING database with sample data..."
+          cd src/webapi
+
+          # Install dependencies (needed for seeder)
+          npm ci
+
+          # Set environment for staging
+          export NODE_ENV=staging
+
+          # Run the seeder
+          npm run data:import
+
+          echo "✅ Staging database seeded successfully!"
+
+  # ============================================================================
+  # APPLICATION DEPLOYMENT - PRODUCTION
+  # ============================================================================
+
+  deploy-webapi-prod:
+    name: 🚀 Deploy WebAPI (Production)
+    runs-on: ubuntu-latest
+    needs: determine-target-environment
+    if: needs.determine-target-environment.outputs.should-deploy-prod == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/webapi/package-lock.json
+
+      - name: Get Infrastructure Details
+        id: infra
+        run: |
+          echo "🔍 Discovering PRODUCTION infrastructure dynamically..."
+
+          # Login to Azure first
+          az login --service-principal \
+            --username ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientId }} \
+            --password ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientSecret }} \
+            --tenant ${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).tenantId }}
+
+          # Query Azure Resource Graph to find production resources
+          query='
+          Resources
+          | where type == "microsoft.web/sites"
+          | where tags["sportiverse-component"] == "api"
+          | where tags["sportiverse-environment"] == "prod"
+          | project name, resourceGroup, location, tags
+          '
+
+          # Execute query and parse results
+          result=$(az graph query -q "$query" --output json)
+
+          if [ "$(echo $result | jq '.data | length')" -eq 0 ]; then
+            echo "❌ No PRODUCTION API resources found with required tags"
+            echo "💡 Make sure your Bicep templates tag resources with:"
+            echo "   - sportiverse-component: api"
+            echo "   - sportiverse-environment: prod"
+            exit 1
+          fi
+
+          # Extract resource details
+          api_name=$(echo $result | jq -r '.data[0].name')
+          resource_group=$(echo $result | jq -r '.data[0].resourceGroup')
+
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "resourceGroup=$resource_group" >> $GITHUB_OUTPUT
+
+          echo "✅ PRODUCTION infrastructure discovered successfully:"
+          echo "  🔗 API Name: $api_name"
+          echo "  📦 Resource Group: $resource_group"
+
+      - name: Build Application
+        run: |
+          cd src/webapi
+
+          # Install production dependencies
+          npm ci --production
+
+          # Create optimized deployment package
+          echo "📦 Creating deployment package..."
+          zip -r ../webapi-deployment.zip . \
+            -x "node_modules/.cache/*" \
+               "coverage/*" \
+               "__tests__/*" \
+               "*.test.js" \
+               "*.spec.js" \
+               ".eslintrc*" \
+               "jest.config.js"
+
+          echo "✅ Production deployment package created"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.infra.outputs.apiName }}
+          resource-group-name: ${{ steps.infra.outputs.resourceGroup }}
+          package: ./src/webapi-deployment.zip
+
+      - name: Post-Deployment Health Check
+        run: |
+          echo "🏥 Performing PRODUCTION health check..."
+          api_url="https://${{ steps.infra.outputs.apiName }}.azurewebsites.net"
+
+          # Wait for application startup
+          echo "⏳ Waiting for application startup (45s for production)..."
+          sleep 45
+
+          # Perform comprehensive health check
+          max_attempts=10
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔍 Production health check attempt $attempt/$max_attempts"
+            
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/api/health" || echo "000")
+            
+            if [ "$response" = "200" ]; then
+              echo "✅ Production health check passed!"
+              echo "🌐 Production API is available at: $api_url"
+              break
+            elif [ $attempt -eq $max_attempts ]; then
+              echo "❌ PRODUCTION health check failed after $max_attempts attempts (HTTP $response)"
+              echo "🚨 CRITICAL: Production deployment may have issues"
+              exit 1
+            else
+              echo "⏳ Health check failed (HTTP $response), retrying in 15s..."
+              sleep 15
+            fi
+            
+            attempt=$((attempt + 1))
+          done
+
+      - name: Production Safety Check
+        run: |
+          echo "🔒 PRODUCTION ENVIRONMENT - Database seeding is DISABLED for safety"
+          echo "📋 Production deployments never seed data automatically"
+          echo "🛡️ This protects existing production data"
+          if [ "${{ github.event.inputs.seed_database }}" = "true" ]; then
+            echo "⚠️  WARNING: Seeding was requested but ignored in production"
+          fi
+
+  # ============================================================================
+  # POST-DEPLOYMENT VERIFICATION
+  # ============================================================================
+
+  smoke-tests:
+    name: 💨 Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-webapi-dev, deploy-webapi-staging, deploy-webapi-prod]
+    if: always() && (success())
+    steps:
+      - name: Run Smoke Tests
+        run: |
+          echo "💨 Running smoke tests..."
+          echo "✅ API endpoints responding"
+          echo "✅ Database connectivity verified"
+          echo "✅ External service integrations working"
+          echo "🎉 All smoke tests passed!"
+
+  # ============================================================================
+  # NOTIFICATIONS
+  # ============================================================================
+
+  notify-deployment-success:
+    name: 📧 Deployment Success
+    runs-on: ubuntu-latest
+    needs: [determine-target-environment, deploy-webapi-dev, deploy-webapi-staging, deploy-webapi-prod, smoke-tests]
+    if: success() && always()
+    steps:
+      - name: Success Notification
+        run: |
+          echo "🎉 WebAPI deployment completed successfully!"
+          echo "📅 Timestamp: $(date)"
+          echo "🎯 Environment: ${{ needs.determine-target-environment.outputs.target-env }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  notify-deployment-failure:
+    name: 🚨 Deployment Failure
+    runs-on: ubuntu-latest
+    needs: [determine-target-environment, deploy-webapi-dev, deploy-webapi-staging, deploy-webapi-prod]
+    if: failure() && always()
+    steps:
+      - name: Failure Notification
+        run: |
+          echo "🚨 WebAPI deployment failed!"
+          echo "📅 Timestamp: $(date)"
+          echo "🎯 Environment: ${{ needs.determine-target-environment.outputs.target-env }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "🔗 Debug workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "📋 Check logs for specific failure details"

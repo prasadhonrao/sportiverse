@@ -62,7 +62,10 @@ module cosmosDb '../database/cosmosDb.bicep' = {
     location: location
     databaseName: 'sportiverse-db'
     enableZoneRedundancy: enableZoneRedundancy
-    tags: tags
+    tags: union(tags, {
+      'sportiverse-component': 'database'
+      'sportiverse-service-type': 'cosmosdb'
+    })
   }
 }
 
@@ -75,7 +78,10 @@ module webApp '../app-service/webApp.bicep' = {
     appServicePlanId: appServicePlan.outputs.id
     nodeVersion: nodeVersion
     apiUrl: '${appName}-api-${environmentName}-${resourceToken}.azurewebsites.net'
-    tags: tags
+    tags: union(tags, {
+      'sportiverse-component': 'webapp'
+      'sportiverse-service-type': 'frontend'
+    })
   }
 }
 
@@ -94,7 +100,10 @@ module webApi '../app-service/webApi.bicep' = {
     paypalAppSecret: paypalAppSecret
     paypalApiUrl: paypalApiUrl
     webAppUrl: webApp.outputs.defaultHostName
-    tags: tags
+    tags: union(tags, {
+      'sportiverse-component': 'api'
+      'sportiverse-service-type': 'webapi'
+    })
   }
 }
 

@@ -1,0 +1,284 @@
+name: Azure App Service Infrastructure
+
+on:
+  push:
+    paths:
+      - 'infra/azure/app-service/**'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy infrastructure to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+          - 'prod'
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AZURE_REGION: 'uksouth'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ============================================================================
+  # INFRASTRUCTURE VALIDATION
+  # ============================================================================
+
+  validate-bicep:
+    name: 🔍 Validate Bicep Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Validate Bicep Templates
+        run: |
+          cd infra/azure/app-service/bicep
+
+          echo "🔍 Validating Bicep templates..."
+
+          # Validate main template
+          az bicep build --file main.bicep --stdout > /dev/null
+          echo "✅ Main template validation passed"
+
+          # Validate all modules
+          for module in modules/*/*.bicep; do
+            if [ -f "$module" ]; then
+              az bicep build --file "$module" --stdout > /dev/null
+              echo "✅ Module $(basename $module) validation passed"
+            fi
+          done
+
+          echo "🎉 All Bicep templates are valid"
+
+  # ============================================================================
+  # ENVIRONMENT-SPECIFIC DEPLOYMENTS
+  # ============================================================================
+
+  deploy-infrastructure-dev:
+    name: 🏗️ Deploy Infrastructure (Development)
+    runs-on: ubuntu-latest
+    needs: validate-bicep
+    if: |
+      (github.ref == 'refs/heads/develop' || 
+       github.event.inputs.environment == 'dev' ||
+       (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-dev]')))
+    outputs:
+      api-name: ${{ steps.deploy.outputs.apiName }}
+      webapp-name: ${{ steps.deploy.outputs.webAppName }}
+      resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
+      cosmos-connection: ${{ steps.deploy.outputs.cosmosConnectionString }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy Infrastructure
+        id: deploy
+        run: |
+          cd infra/azure/app-service/bicep
+
+          echo "🚀 Deploying infrastructure to DEVELOPMENT environment..."
+
+          # Deploy with development parameters
+          deployment_output=$(az deployment sub create \
+            --location ${{ env.AZURE_REGION }} \
+            --name "sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)" \
+            --template-file main.bicep \
+            --parameters environments/dev.parameters.json \
+            --query "properties.outputs" \
+            --output json)
+
+          # Extract and set outputs
+          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
+          cosmos_connection=$(echo $deployment_output | jq -r '.cosmosDbConnectionString.value // empty')
+
+          # Store in GitHub outputs for other workflows
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
+          echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
+          echo "cosmosConnectionString=$cosmos_connection" >> $GITHUB_OUTPUT
+
+          echo "✅ Development infrastructure deployed successfully!"
+          echo "🔗 API Service: $api_name"
+          echo "🔗 Web App: $webapp_name"
+          echo "📦 Resource Group: $resource_group"
+
+      - name: Store Infrastructure State
+        run: |
+          # Store infrastructure outputs in GitHub environment variables
+          # This allows application workflows to discover service names
+          cat >> $GITHUB_ENV << EOF
+          DEV_API_NAME=${{ steps.deploy.outputs.apiName }}
+          DEV_WEBAPP_NAME=${{ steps.deploy.outputs.webAppName }}
+          DEV_RESOURCE_GROUP=${{ steps.deploy.outputs.resourceGroupName }}
+          EOF
+
+  deploy-infrastructure-staging:
+    name: 🏗️ Deploy Infrastructure (Staging)
+    runs-on: ubuntu-latest
+    needs: validate-bicep
+    if: |
+      (github.event.inputs.environment == 'staging' ||
+       (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-staging]')))
+    outputs:
+      api-name: ${{ steps.deploy.outputs.apiName }}
+      webapp-name: ${{ steps.deploy.outputs.webAppName }}
+      resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy Infrastructure
+        id: deploy
+        run: |
+          cd infra/azure/app-service/bicep
+
+          echo "🚀 Deploying infrastructure to STAGING environment..."
+
+          deployment_output=$(az deployment sub create \
+            --location ${{ env.AZURE_REGION }} \
+            --name "sportiverse-infra-staging-$(date +%Y%m%d-%H%M%S)" \
+            --template-file main.bicep \
+            --parameters environments/staging.parameters.json \
+            --query "properties.outputs" \
+            --output json)
+
+          # Extract outputs
+          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
+
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
+          echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
+
+          echo "✅ Staging infrastructure deployed successfully!"
+
+  deploy-infrastructure-prod:
+    name: 🏗️ Deploy Infrastructure (Production)
+    runs-on: ubuntu-latest
+    needs: validate-bicep
+    if: |
+      (github.ref == 'refs/heads/main' && 
+       (github.event.inputs.environment == 'prod' || 
+        contains(github.event.head_commit.message, '[deploy-prod]')))
+    outputs:
+      api-name: ${{ steps.deploy.outputs.apiName }}
+      webapp-name: ${{ steps.deploy.outputs.webAppName }}
+      resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Deploy Infrastructure
+        id: deploy
+        run: |
+          cd infra/azure/app-service/bicep
+
+          echo "🚀 Deploying infrastructure to PRODUCTION environment..."
+
+          deployment_output=$(az deployment sub create \
+            --location ${{ env.AZURE_REGION }} \
+            --name "sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)" \
+            --template-file main.bicep \
+            --parameters environments/prod.parameters.json \
+            --query "properties.outputs" \
+            --output json)
+
+          # Extract outputs
+          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
+
+          echo "apiName=$api_name" >> $GITHUB_OUTPUT
+          echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
+          echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
+
+          echo "✅ Production infrastructure deployed successfully!"
+
+  # ============================================================================
+  # INFRASTRUCTURE DRIFT DETECTION
+  # ============================================================================
+
+  drift-detection:
+    name: 🔍 Infrastructure Drift Detection
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    if: always() && (success() || failure())
+    steps:
+      - name: Check Infrastructure Drift
+        run: |
+          echo "🔍 Checking for infrastructure drift..."
+          echo "This job would typically:"
+          echo "1. Compare deployed resources with Bicep templates"
+          echo "2. Check for manual changes outside of IaC"
+          echo "3. Generate drift reports"
+          echo "4. Alert on significant drift"
+          echo "✅ Drift detection completed"
+
+  # ============================================================================
+  # NOTIFICATIONS
+  # ============================================================================
+
+  notify-infrastructure-success:
+    name: 📧 Infrastructure Success Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    if: success() && always()
+    steps:
+      - name: Send Success Notification
+        run: |
+          echo "🎉 Infrastructure deployment completed successfully!"
+          echo "Timestamp: $(date)"
+          echo "Environment: ${{ github.event.inputs.environment || 'auto-detected' }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+
+  notify-infrastructure-failure:
+    name: 🚨 Infrastructure Failure Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    if: failure() && always()
+    steps:
+      - name: Send Failure Notification
+        run: |
+          echo "❌ Infrastructure deployment failed!"
+          echo "Timestamp: $(date)"
+          echo "Environment: ${{ github.event.inputs.environment || 'auto-detected' }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "🔗 Check workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

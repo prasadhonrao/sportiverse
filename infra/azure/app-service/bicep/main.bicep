@@ -44,6 +44,10 @@ var tags = {
   Environment: environmentName
   Application: appName
   'Created-By': 'Bicep'
+  // Tags for dynamic discovery by CI/CD workflows
+  'sportiverse-environment': environmentName
+  'sportiverse-project': appName
+  'sportiverse-resource-token': resourceToken
 }
 
 // Resource Group
