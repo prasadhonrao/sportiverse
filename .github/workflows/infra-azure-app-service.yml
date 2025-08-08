@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'infra/azure/app-service/**'
+      - '.github/workflows/infra-azure-app-service.yml'
     branches:
       - main
       - develop
@@ -23,6 +24,11 @@ on:
         required: false
         default: false
         type: boolean
+      deploy_reason:
+        description: 'Reason for deployment (for tracking)'
+        required: false
+        default: 'Manual deployment'
+        type: string
 
 env:
   AZURE_REGION: 'uksouth'
@@ -53,6 +59,11 @@ jobs:
           cd infra/azure/app-service/bicep
 
           echo "🔍 Validating Bicep templates..."
+
+          # Show current configuration
+          echo "📋 Current configuration:"
+          echo "   Node.js version: $(grep -A1 'Node.js version' main.bicep | grep 'param nodeVersion' | cut -d"'" -f2)"
+          echo "   MongoDB version: $(grep -A1 'serverVersion' modules/database/cosmosDb.bicep | grep 'serverVersion' | cut -d"'" -f2)"
 
           # Validate main template
           az bicep build --file main.bicep --stdout > /dev/null
@@ -100,6 +111,11 @@ jobs:
           cd infra/azure/app-service/bicep
 
           echo "🚀 Deploying infrastructure to DEVELOPMENT environment..."
+          echo "📋 Changes may include:"
+          echo "   - Node.js runtime version updates"
+          echo "   - MongoDB server version updates"
+          echo "   - Infrastructure configuration changes"
+          echo "   - Deployment reason: ${{ github.event.inputs.deploy_reason || 'Automated from code changes' }}"
 
           # Deploy with development parameters
           deployment_output=$(az deployment sub create \
@@ -126,6 +142,7 @@ jobs:
           echo "🔗 API Service: $api_name"
           echo "🔗 Web App: $webapp_name"
           echo "📦 Resource Group: $resource_group"
+          echo "🆕 Updated with latest Node.js and MongoDB versions"
 
       - name: Store Infrastructure State
         run: |
