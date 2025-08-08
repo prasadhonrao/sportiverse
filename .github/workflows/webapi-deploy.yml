@@ -275,7 +275,7 @@ jobs:
           while [ $attempt -le $max_attempts ]; do
             echo "🔍 Health check attempt $attempt/$max_attempts"
             
-            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/api/health" || echo "000")
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/status" || echo "000")
             
             if [ "$response" = "200" ]; then
               echo "✅ Health check passed!"
@@ -492,7 +492,7 @@ jobs:
           while [ $attempt -le $max_attempts ]; do
             echo "🔍 Production health check attempt $attempt/$max_attempts"
             
-            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/api/health" || echo "000")
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$api_url/status" || echo "000")
             
             if [ "$response" = "200" ]; then
               echo "✅ Production health check passed!"
