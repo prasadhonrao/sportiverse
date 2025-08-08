@@ -6,7 +6,7 @@ param location = 'eastus'
 param appName = 'sportiverse'
 param resourceGroupName = 'sportiverse-rg-dev'
 param appServicePlanSku = 'B1'
-param nodeVersion = '18-lts'
+param nodeVersion = '22-lts'
 param enableZoneRedundancy = false
 
 // Secure parameters - these should be provided at deployment time

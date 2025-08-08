@@ -56,7 +56,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '18.20.0'
+          value: '22.11.0'
         }
       ]
       connectionStrings: []

@@ -29,7 +29,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     enableFreeTier: false
     enableAnalyticalStorage: false
     apiProperties: {
-      serverVersion: '4.2'
+      serverVersion: '7.0'
     }
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'

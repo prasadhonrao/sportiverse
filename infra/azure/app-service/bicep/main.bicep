@@ -18,7 +18,7 @@ param resourceGroupName string = '${appName}-rg-${environmentName}'
 param appServicePlanSku string = 'B1'
 
 @description('Node.js version for the applications')
-param nodeVersion string = '18-lts'
+param nodeVersion string = '22-lts'
 
 @description('Enable zone redundancy for Cosmos DB')
 param enableZoneRedundancy bool = false
