@@ -1,0 +1,231 @@
+name: WebApp CI/CD Pipeline
+
+on:
+  push:
+    paths:
+      - 'src/webapp/**'
+      - '.github/workflows/webapp-cd.yml'
+      - '.github/workflows/_templates/**'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+          - 'prod'
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment regardless of branch'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '22'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  deployments: write
+  id-token: write
+
+jobs:
+  # ============================================================================
+  # BRANCH STRATEGY ENFORCEMENT
+  # ============================================================================
+
+  branch-strategy:
+    name: 🛡️ Branch Strategy Check
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.strategy.outputs.deploy }}
+      target-environment: ${{ steps.strategy.outputs.environment }}
+      deployment-reason: ${{ steps.strategy.outputs.reason }}
+    steps:
+      - name: Determine Deployment Strategy
+        id: strategy
+        run: |
+          echo "=== Branch Strategy Analysis ==="
+          echo "Event: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Force Deploy: ${{ github.event.inputs.force_deploy }}"
+          echo "Manual Environment: ${{ github.event.inputs.environment }}"
+
+          # Default values
+          DEPLOY="false"
+          ENVIRONMENT=""
+          REASON=""
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY="true"
+              ENVIRONMENT="${{ github.event.inputs.environment }}"
+              REASON="Manual deployment with force flag"
+            elif [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.ref_name }}" = "develop" ]; then
+              DEPLOY="true"
+              ENVIRONMENT="${{ github.event.inputs.environment }}"
+              REASON="Manual deployment from allowed branch"
+            else
+              DEPLOY="false"
+              REASON="Manual deployment blocked - use force_deploy for feature branches"
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            case "${{ github.ref_name }}" in
+              "main")
+                DEPLOY="true"
+                ENVIRONMENT="prod"
+                REASON="Automatic production deployment"
+                ;;
+              "develop")
+                DEPLOY="true"
+                ENVIRONMENT="dev"
+                REASON="Automatic development deployment"
+                ;;
+              *)
+                DEPLOY="false"
+                REASON="Automatic deployment not configured for this branch"
+                ;;
+            esac
+          fi
+
+          echo "=== Strategy Results ==="
+          echo "Deploy: $DEPLOY"
+          echo "Environment: $ENVIRONMENT"
+          echo "Reason: $REASON"
+
+          echo "deploy=$DEPLOY" >> $GITHUB_OUTPUT
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "reason=$REASON" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # CONTINUOUS INTEGRATION PIPELINE
+  # ============================================================================
+
+  ci:
+    name: 🔍 Continuous Integration
+    needs: branch-strategy
+    if: needs.branch-strategy.outputs.should-deploy == 'true'
+    uses: ./.github/workflows/_templates/node-ci.yml
+    with:
+      node-version: '22'
+      working-directory: 'src/webapp'
+      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
+      package-manager: 'npm'
+    secrets: inherit
+
+  # ============================================================================
+  # DEPLOYMENT PIPELINE
+  # ============================================================================
+
+  deploy-dev:
+    name: 🚀 Deploy to Development
+    needs: [branch-strategy, ci]
+    if: needs.branch-strategy.outputs.target-environment == 'dev' && needs.ci.outputs.quality-passed == 'true'
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'dev'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'webapp'
+      health-endpoint: '/'
+      startup-delay: 45
+      health-check-attempts: 10
+      seed-database: false
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  deploy-staging:
+    name: 🎭 Deploy to Staging
+    needs: [branch-strategy, ci]
+    if: needs.branch-strategy.outputs.target-environment == 'staging' && needs.ci.outputs.quality-passed == 'true'
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'staging'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'webapp'
+      health-endpoint: '/'
+      startup-delay: 45
+      health-check-attempts: 10
+      seed-database: false
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  deploy-prod:
+    name: 🏭 Deploy to Production
+    needs: [branch-strategy, ci]
+    if: needs.branch-strategy.outputs.target-environment == 'prod' && needs.ci.outputs.quality-passed == 'true'
+    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    with:
+      environment: 'prod'
+      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
+      component-type: 'webapp'
+      health-endpoint: '/'
+      startup-delay: 60
+      health-check-attempts: 15
+      seed-database: false
+    secrets:
+      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+  # ============================================================================
+  # POST-DEPLOYMENT VERIFICATION
+  # ============================================================================
+
+  health-check:
+    name: 🏥 Health Check
+    needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod]
+    if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
+    uses: ./.github/workflows/_templates/health-check.yml
+    with:
+      application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
+      environment: ${{ needs.branch-strategy.outputs.target-environment }}
+      component-type: 'webapp'
+      health-endpoint: '/'
+      run-smoke-tests: true
+
+  # ============================================================================
+  # CI STATUS & NOTIFICATIONS (REUSABLE)
+  # ============================================================================
+
+  ci-status-notifications:
+    name: � CI Status & Notifications
+    needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
+    if: always() && needs.branch-strategy.outputs.should-deploy == 'true'
+    uses: ./.github/workflows/_templates/ci-status-notifications.yml
+    with:
+      ci-result: ${{ needs.ci.outputs.quality-passed }}
+      test-results: ${{ needs.ci.outputs.test-results }}
+      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
+      component-name: 'WebApp'
+      node-version: '22'
+      event-type: ${{ github.event_name }}
+      enable-security-report: true
+      critical-branch: 'develop'
+
+  # ============================================================================
+  # PULL REQUEST INTEGRATION (REUSABLE)
+  # ============================================================================
+
+  pr-integration:
+    name: � PR Integration
+    needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
+    if: github.event_name == 'pull_request' && always() && needs.branch-strategy.outputs.should-deploy == 'true'
+    uses: ./.github/workflows/_templates/pr-integration.yml
+    with:
+      ci-result: ${{ needs.ci.outputs.quality-passed }}
+      test-results: ${{ needs.ci.outputs.test-results }}
+      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
+      component-name: 'WebApp'
+      node-version: '22'
+      health-endpoint: '/'
+      component-description: 'React-based frontend application for Sportiverse e-commerce platform'

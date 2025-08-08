@@ -1,0 +1,99 @@
+name: WebApp CI Pipeline
+
+on:
+  push:
+    paths:
+      - 'src/webapp/**'
+      - '.github/workflows/webapp-ci.yml'
+      - '.github/workflows/_templates/node-ci.yml'
+    branches:
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+  pull_request:
+    paths:
+      - 'src/webapp/**'
+      - '.github/workflows/webapp-ci.yml'
+      - '.github/workflows/_templates/node-ci.yml'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests (for debugging)'
+        required: false
+        default: false
+        type: boolean
+      cache_strategy:
+        description: 'npm cache strategy'
+        required: false
+        default: 'use-cache'
+        type: choice
+        options:
+          - 'use-cache'
+          - 'refresh-cache'
+          - 'no-cache'
+
+env:
+  NODE_VERSION: '22'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  pull-requests: write # For PR comments
+  checks: write # For check runs
+
+jobs:
+  # ============================================================================
+  # CONTINUOUS INTEGRATION PIPELINE
+  # ============================================================================
+
+  ci:
+    name: 🔍 Continuous Integration
+    uses: ./.github/workflows/_templates/node-ci.yml
+    with:
+      node-version: '22'
+      working-directory: 'src/webapp'
+      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
+      package-manager: 'npm'
+    secrets: inherit
+
+  # ============================================================================
+  # CI STATUS & NOTIFICATIONS (REUSABLE)
+  # ============================================================================
+
+  ci-status-notifications:
+    name: 📊 CI Status & Notifications
+    needs: ci
+    if: always()
+    uses: ./.github/workflows/_templates/ci-status-notifications.yml
+    with:
+      ci-result: ${{ needs.ci.outputs.quality-passed }}
+      test-results: ${{ needs.ci.outputs.test-results }}
+      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
+      component-name: 'WebApp'
+      node-version: '22'
+      event-type: ${{ github.event_name }}
+      enable-security-report: true
+      critical-branch: 'develop'
+
+  # ============================================================================
+  # PULL REQUEST INTEGRATION (REUSABLE)
+  # ============================================================================
+
+  pr-integration:
+    name: 💬 PR Integration
+    needs: ci
+    if: github.event_name == 'pull_request' && always()
+    uses: ./.github/workflows/_templates/pr-integration.yml
+    with:
+      ci-result: ${{ needs.ci.outputs.quality-passed }}
+      test-results: ${{ needs.ci.outputs.test-results }}
+      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
+      component-name: 'WebApp'
+      node-version: '22'
+      health-endpoint: '/'
+      component-description: 'React-based frontend application for Sportiverse e-commerce platform'
