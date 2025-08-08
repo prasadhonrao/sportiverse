@@ -302,11 +302,28 @@ jobs:
           # Install dependencies (needed for seeder)
           npm ci
 
-          # Set environment variables for database connection
-          # The deployed app should have these in App Service settings
+          # Get MongoDB connection settings from the deployed App Service
+          echo "🔍 Getting database connection settings from App Service..."
+
+          # Get the connection settings from Azure App Service
+          app_settings=$(az webapp config appsettings list \
+            --name "${{ steps.infra.outputs.apiName }}" \
+            --resource-group "${{ steps.infra.outputs.resourceGroup }}" \
+            --output json)
+
+          # Extract MongoDB connection variables
+          export MONGODB_CONNECTION_SCHEME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_CONNECTION_SCHEME") | .value')
+          export MONGODB_HOST=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_HOST") | .value')
+          export MONGODB_PORT=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PORT") | .value')
+          export MONGODB_USERNAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_USERNAME") | .value')
+          export MONGODB_PASSWORD=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PASSWORD") | .value')
+          export MONGODB_DB_NAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_NAME") | .value')
+          export MONGODB_DB_PARAMS=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_PARAMS") | .value')
           export NODE_ENV=development
 
-          # Run the seeder
+          echo "✅ Database connection settings retrieved"
+
+          # Run the seeder with the connection settings
           npm run data:import
 
           echo "✅ Database seeded successfully!"
@@ -374,10 +391,28 @@ jobs:
           # Install dependencies (needed for seeder)
           npm ci
 
-          # Set environment for staging
+          # Get MongoDB connection settings from the deployed App Service
+          echo "🔍 Getting database connection settings from Staging App Service..."
+
+          # Get the connection settings from Azure App Service
+          app_settings=$(az webapp config appsettings list \
+            --name "${{ steps.infra.outputs.apiName }}" \
+            --resource-group "${{ steps.infra.outputs.resourceGroup }}" \
+            --output json)
+
+          # Extract MongoDB connection variables
+          export MONGODB_CONNECTION_SCHEME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_CONNECTION_SCHEME") | .value')
+          export MONGODB_HOST=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_HOST") | .value')
+          export MONGODB_PORT=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PORT") | .value')
+          export MONGODB_USERNAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_USERNAME") | .value')
+          export MONGODB_PASSWORD=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_PASSWORD") | .value')
+          export MONGODB_DB_NAME=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_NAME") | .value')
+          export MONGODB_DB_PARAMS=$(echo "$app_settings" | jq -r '.[] | select(.name=="MONGODB_DB_PARAMS") | .value')
           export NODE_ENV=staging
 
-          # Run the seeder
+          echo "✅ Database connection settings retrieved"
+
+          # Run the seeder with the connection settings
           npm run data:import
 
           echo "✅ Staging database seeded successfully!"
