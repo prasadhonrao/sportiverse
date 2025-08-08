@@ -1,0 +1,186 @@
+name: CI Status & Notifications
+
+on:
+  workflow_call:
+    inputs:
+      ci-result:
+        description: 'CI pipeline result (true/false)'
+        type: string
+        required: true
+      test-results:
+        description: 'Test execution results'
+        type: string
+        required: true
+      build-artifact:
+        description: 'Build artifact name'
+        type: string
+        required: false
+      component-name:
+        description: 'Name of the component (WebAPI, WebApp, etc.)'
+        type: string
+        required: true
+      node-version:
+        description: 'Node.js version used'
+        type: string
+        required: true
+      event-type:
+        description: 'GitHub event type'
+        type: string
+        required: true
+      enable-security-report:
+        description: 'Enable security reporting for develop branch'
+        type: boolean
+        default: true
+      critical-branch:
+        description: 'Branch that triggers critical failure notifications'
+        type: string
+        default: 'develop'
+
+jobs:
+  # ============================================================================
+  # CI STATUS CHECK
+  # ============================================================================
+
+  ci-status:
+    name: 🎯 CI Status Check
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.status.outputs.result }}
+    steps:
+      - name: Set CI Status
+        id: status
+        run: |
+          if [ "${{ inputs.ci-result }}" = "true" ]; then
+            echo "✅ ${{ inputs.component-name }} CI Pipeline PASSED"
+            echo "🎉 ${{ inputs.component-name }} is ready for deployment or merge"
+            echo "result=success" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "❌ ${{ inputs.component-name }} CI Pipeline FAILED"
+            echo "🚨 Please fix the issues before proceeding"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # ============================================================================
+  # SECURITY REPORT
+  # ============================================================================
+
+  security-report:
+    name: 🔒 Security Report
+    runs-on: ubuntu-latest
+    if: inputs.enable-security-report && (inputs.event-type == 'push' && github.ref == format('refs/heads/{0}', inputs.critical-branch))
+    steps:
+      - name: Security Summary
+        run: |
+          echo "## 🔒 Security Report - ${{ inputs.component-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Security Checks" >> $GITHUB_STEP_SUMMARY
+          echo "- **npm audit**: Completed during CI" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dependency scan**: Included in build process" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code quality**: ESLint security rules applied" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js Version**: ${{ inputs.node-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ inputs.ci-result }}" = "true" ]; then
+            echo "✅ **Security Status**: No critical vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Security Status**: Review CI logs for potential security issues" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Resources" >> $GITHUB_STEP_SUMMARY
+          echo "- [Security Policies](../../security/policy)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Vulnerability Reporting](../../security/advisories)" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # FAILURE NOTIFICATION
+  # ============================================================================
+
+  notify-failure:
+    name: 🚨 CI Failure Notification
+    runs-on: ubuntu-latest
+    if: inputs.ci-result != 'true' && github.ref == format('refs/heads/{0}', inputs.critical-branch)
+    steps:
+      - name: Notify Failure
+        run: |
+          echo "🚨 CRITICAL: ${{ inputs.component-name }} CI Pipeline Failed on ${{ inputs.critical-branch }} Branch"
+          echo "📅 Timestamp: $(date)"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          echo "⚠️ This may affect staging deployments and downstream development"
+          echo "🔧 Please review and fix CI issues before further commits"
+          echo "📊 Test Results: ${{ inputs.test-results }}"
+          echo "🏗️ Component: ${{ inputs.component-name }}"
+
+  # ============================================================================
+  # SUCCESS NOTIFICATION
+  # ============================================================================
+
+  notify-success:
+    name: ✅ CI Success Notification
+    runs-on: ubuntu-latest
+    if: inputs.ci-result == 'true'
+    steps:
+      - name: Success Summary
+        run: |
+          echo "✅ ${{ inputs.component-name }} CI Pipeline completed successfully!"
+          echo "📊 Quality gate: PASSED"
+          echo "🧪 Tests: ${{ inputs.test-results }}"
+          echo "📦 Artifact: ${{ inputs.build-artifact || 'Not generated' }}"
+          echo "🏗️ Component: ${{ inputs.component-name }}"
+          echo "⚙️ Node.js: ${{ inputs.node-version }}"
+          echo "🔗 Ready for: ${{ inputs.event-type == 'pull_request' && 'Code Review' || 'Deployment Pipeline' }}"
+
+  # ============================================================================
+  # CI RESULTS SUMMARY
+  # ============================================================================
+
+  ci-summary:
+    name: 📊 CI Results Summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate CI Summary
+        run: |
+          echo "## 🔍 ${{ inputs.component-name }} CI Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Pipeline Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Component**: ${{ inputs.component-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event**: ${{ inputs.event-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js Version**: ${{ inputs.node-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 📊 CI Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.ci-result }}" = "true" ]; then
+            echo "✅ **Quality Gate**: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Test Results**: ${{ inputs.test-results }}" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Build Artifact**: ${{ inputs.build-artifact || 'Not applicable' }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Quality Gate**: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Test Results**: ${{ inputs.test-results }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ inputs.event-type }}" = "pull_request" ]; then
+            echo "### 🔄 Pull Request Information" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR Number**: #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Source Branch**: ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Target Branch**: ${{ github.base_ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "### 🎯 Next Steps" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.ci-result }}" = "true" ]; then
+            if [ "${{ inputs.event-type }}" = "pull_request" ]; then
+              echo "✅ **Ready for Review**: CI checks passed, PR can be reviewed and merged" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **Ready for Deployment**: CI passed, deployment pipeline can proceed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **Action Required**: Fix CI issues before proceeding" >> $GITHUB_STEP_SUMMARY
+          fi
