@@ -31,7 +31,7 @@ on:
         type: boolean
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
 
 permissions:
   actions: read
@@ -561,8 +561,8 @@ jobs:
   smoke-tests:
     name: 💨 Smoke Tests
     runs-on: ubuntu-latest
-    needs: [deploy-webapi-dev, deploy-webapi-staging, deploy-webapi-prod]
-    if: always() && (success())
+    needs: [determine-target-environment, deploy-webapi-dev, deploy-webapi-staging, deploy-webapi-prod]
+    if: always() && (needs.deploy-webapi-dev.result == 'success' || needs.deploy-webapi-staging.result == 'success' || needs.deploy-webapi-prod.result == 'success')
     steps:
       - name: Run Smoke Tests
         run: |
@@ -571,6 +571,7 @@ jobs:
           echo "✅ Database connectivity verified"
           echo "✅ External service integrations working"
           echo "🎉 All smoke tests passed!"
+          echo "🎯 Environment: ${{ needs.determine-target-environment.outputs.target-env }}"
 
   # ============================================================================
   # NOTIFICATIONS
