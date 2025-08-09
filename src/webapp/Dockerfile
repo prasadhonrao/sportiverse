@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:22 AS build
+FROM node:22-alpine AS build
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
@@ -16,7 +16,10 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM nginx:1.25-alpine AS production
+FROM nginx:1.27-alpine AS production
+
+# Update Alpine packages to reduce vulnerabilities
+RUN apk update && apk upgrade --no-cache
 
 # Copy built assets from the build stage to Nginx's static content directory
 COPY --from=build /usr/src/app/build /usr/share/nginx/html
