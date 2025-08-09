@@ -112,6 +112,7 @@ runs:
       with:
         upload: ${{ inputs.upload-sarif }}
         output: ${{ inputs.working-directory }}/codeql-results
+      continue-on-error: true
 
     - name: Process CodeQL Results
       id: process-results
