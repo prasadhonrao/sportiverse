@@ -47,7 +47,7 @@ jobs:
   # ============================================================================
   # CONTINUOUS INTEGRATION
   # ============================================================================
-  
+
   ci:
     name: 🔍 CI Pipeline
     runs-on: ubuntu-latest
@@ -56,7 +56,7 @@ jobs:
       quality-passed: ${{ steps.ci.outputs.quality-passed }}
       test-results: ${{ steps.ci.outputs.test-results }}
       coverage-percentage: ${{ steps.ci.outputs.coverage-percentage }}
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -74,13 +74,13 @@ jobs:
   # ============================================================================
   # PULL REQUEST INTEGRATION
   # ============================================================================
-  
+
   pr-integration:
     name: � PR Integration
     needs: ci
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Update Pull Request
         uses: ./.github/actions/pr-integration
@@ -98,13 +98,13 @@ jobs:
   # ============================================================================
   # NOTIFICATIONS
   # ============================================================================
-  
+
   notify:
     name: � Notifications
     needs: ci
     if: always() && (needs.ci.outputs.quality-passed != 'true' || github.event.inputs.notify_on_success == 'true')
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Send Notifications
         uses: ./.github/actions/notify
@@ -113,7 +113,7 @@ jobs:
           title: '${{ env.COMPONENT_NAME }} CI Pipeline'
           message: |
             Pipeline completed for ${{ env.COMPONENT_NAME }} on branch `${{ github.ref_name }}`
-            
+
             **Results:**
             - Quality Gates: ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
             - Tests: ${{ needs.ci.outputs.test-results }}

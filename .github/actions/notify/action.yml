@@ -77,10 +77,10 @@ runs:
             EMOJI="🔵"
             ;;
         esac
-        
+
         echo "color=${COLOR}" >> $GITHUB_OUTPUT
         echo "emoji=${EMOJI}" >> $GITHUB_OUTPUT
-        
+
         # Prepare detailed information
         DETAILS=""
         if [ "${{ inputs.include-details }}" = "true" ]; then
@@ -102,7 +102,7 @@ runs:
             DETAILS="${DETAILS}Deployment URL: ${{ inputs.deployment-url }}\n"
           fi
         fi
-        
+
         # Use base64 to handle multiline content safely
         echo "details=$(echo -n "$DETAILS" | base64 -w 0)" >> $GITHUB_OUTPUT
 
@@ -111,9 +111,9 @@ runs:
       shell: bash
       run: |
         echo "📱 Sending Slack notification..."
-        
+
         DETAILS_DECODED=$(echo "${{ steps.prepare.outputs.details }}" | base64 -d)
-        
+
         SLACK_PAYLOAD=$(cat <<EOF
         {
           "attachments": [
@@ -135,11 +135,11 @@ runs:
         }
         EOF
         )
-        
+
         curl -X POST -H 'Content-type: application/json' \
           --data "$SLACK_PAYLOAD" \
           "${{ inputs.slack-webhook }}"
-        
+
         echo "✅ Slack notification sent"
 
     - name: Send Teams Notification
@@ -147,9 +147,9 @@ runs:
       shell: bash
       run: |
         echo "📢 Sending Teams notification..."
-        
+
         DETAILS_DECODED=$(echo "${{ steps.prepare.outputs.details }}" | base64 -d)
-        
+
         TEAMS_PAYLOAD=$(cat <<EOF
         {
           "@type": "MessageCard",
@@ -179,11 +179,11 @@ runs:
         }
         EOF
         )
-        
+
         curl -X POST -H 'Content-Type: application/json' \
           --data "$TEAMS_PAYLOAD" \
           "${{ inputs.teams-webhook }}"
-        
+
         echo "✅ Teams notification sent"
 
     - name: Send Email Notification
@@ -200,28 +200,28 @@ runs:
       run: |
         CHANNELS=""
         SENT=false
-        
+
         if [ -n "${{ inputs.slack-webhook }}" ]; then
           CHANNELS="${CHANNELS}slack,"
           SENT=true
         fi
-        
+
         if [ -n "${{ inputs.teams-webhook }}" ]; then
           CHANNELS="${CHANNELS}teams,"
           SENT=true
         fi
-        
+
         if [ -n "${{ inputs.email-to }}" ]; then
           CHANNELS="${CHANNELS}email,"
           SENT=true
         fi
-        
+
         # Remove trailing comma
         CHANNELS=${CHANNELS%,}
-        
+
         echo "sent=$SENT" >> $GITHUB_OUTPUT
         echo "channels=$CHANNELS" >> $GITHUB_OUTPUT
-        
+
         if [ "$SENT" = true ]; then
           echo "✅ Notifications sent to: $CHANNELS"
         else

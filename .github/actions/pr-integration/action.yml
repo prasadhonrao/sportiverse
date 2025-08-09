@@ -80,45 +80,45 @@ runs:
             STATUS_TEXT="**${{ inputs.status }}**"
             ;;
         esac
-        
+
         # Build comment content
         COMMENT="## ${ICON} CI/CD Pipeline ${STATUS_TEXT}
-        
+
         **Workflow:** ${{ github.workflow }}  
         **Commit:** \`${{ github.sha }}\`  
         **Branch:** \`${{ github.ref_name }}\`  
         **Triggered by:** @${{ github.actor }}  
-        
+
         "
-        
+
         if [ -n "${{ inputs.ci-results }}" ]; then
           COMMENT="${COMMENT}### 📊 CI Results
         ${{ inputs.ci-results }}
-        
+
         "
         fi
-        
+
         if [ -n "${{ inputs.coverage-percentage }}" ]; then
           COMMENT="${COMMENT}### 📈 Test Coverage
         **Coverage:** ${{ inputs.coverage-percentage }}%
-        
+
         "
         fi
-        
+
         if [ -n "${{ inputs.deployment-url }}" ]; then
           COMMENT="${COMMENT}### 🚀 Preview Deployment
         **URL:** [${{ inputs.deployment-url }}](${{ inputs.deployment-url }})
-        
+
         "
         fi
-        
+
         COMMENT="${COMMENT}### 🔗 Links
         - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         - [View Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-        
+
         ---
         *Updated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*"
-        
+
         # Use base64 to handle multiline content safely
         echo "content=$(echo -n "$COMMENT" | base64 -w 0)" >> $GITHUB_OUTPUT
 
@@ -130,12 +130,12 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         echo "🔍 Looking for existing CI/CD comment..."
-        
+
         COMMENT_ID=$(gh api \
           "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
           --jq '.[] | select(.body | startswith("## ")) | select(.body | contains("CI/CD Pipeline")) | .id' \
           | head -n 1)
-        
+
         if [ -n "$COMMENT_ID" ]; then
           echo "Found existing comment: $COMMENT_ID"
           echo "comment-id=$COMMENT_ID" >> $GITHUB_OUTPUT
@@ -151,7 +151,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         COMMENT_CONTENT=$(echo "${{ steps.comment-content.outputs.content }}" | base64 -d)
-        
+
         if [ -n "${{ steps.find-comment.outputs.comment-id }}" ]; then
           echo "📝 Updating existing comment..."
           gh api \
@@ -191,7 +191,7 @@ runs:
             DESCRIPTION="Status: ${{ inputs.status }}"
             ;;
         esac
-        
+
         echo "📋 Updating status check: $STATE"
         gh api \
           "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
@@ -207,23 +207,23 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         echo "🤖 Checking auto-merge eligibility..."
-        
+
         # Get PR details
         PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}")
-        
+
         # Check if PR is mergeable
         MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
         DRAFT=$(echo "$PR_DATA" | jq -r '.draft')
-        
+
         # Check approvals
         APPROVALS=$(gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}/reviews" \
           --jq '[.[] | select(.state == "APPROVED")] | length')
-        
+
         echo "Mergeable: $MERGEABLE"
         echo "Draft: $DRAFT"
         echo "Approvals: $APPROVALS"
         echo "Required: ${{ inputs.required-approvals }}"
-        
+
         if [ "$MERGEABLE" = "true" ] && [ "$DRAFT" = "false" ] && [ "$APPROVALS" -ge "${{ inputs.required-approvals }}" ]; then
           echo "eligible=true" >> $GITHUB_OUTPUT
           echo "✅ PR is eligible for auto-merge"
@@ -240,7 +240,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         echo "🤖 Attempting auto-merge..."
-        
+
         if gh pr merge "${{ inputs.pr-number }}" --auto --squash --repo "${{ github.repository }}"; then
           echo "status=enabled" >> $GITHUB_OUTPUT
           echo "✅ Auto-merge enabled successfully"

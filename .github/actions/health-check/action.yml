@@ -67,14 +67,14 @@ runs:
         MAX_ATTEMPTS="${{ inputs.retry-attempts }}"
         RETRY_DELAY="${{ inputs.retry-delay }}"
         CHECK_BODY="${{ inputs.check-response-body }}"
-        
+
         echo "🏥 Starting health check for: ${ENDPOINT}"
-        
+
         # Initialize variables
         attempt=0
         success=false
         total_start_time=$(date +%s%3N)
-        
+
         while [ $attempt -lt $MAX_ATTEMPTS ]; do
           attempt=$((attempt + 1))
           echo "📞 Attempt $attempt/$MAX_ATTEMPTS..."
@@ -119,15 +119,15 @@ runs:
             sleep $RETRY_DELAY
           fi
         done
-        
+
         total_end_time=$(date +%s%3N)
         total_time=$((total_end_time - total_start_time))
-        
+
         # Set outputs
         echo "attempts=$attempt" >> $GITHUB_OUTPUT
         echo "status-code=$status_code" >> $GITHUB_OUTPUT
         echo "response-time=$response_time" >> $GITHUB_OUTPUT
-        
+
         if [ "$success" = true ]; then
           echo "status=healthy" >> $GITHUB_OUTPUT
           echo "✅ Health check PASSED after $attempt attempt(s)"
@@ -153,7 +153,7 @@ runs:
         echo "Response Time: ${{ steps.health-check.outputs.response-time }}ms"
         echo "Attempts Made: ${{ steps.health-check.outputs.attempts }}/${{ inputs.retry-attempts }}"
         echo "Expected Status: ${{ inputs.expected-status }}"
-        
+
         if [ "${{ steps.health-check.outputs.status }}" = "healthy" ]; then
           echo "🎉 Application is healthy and responding correctly!"
         else

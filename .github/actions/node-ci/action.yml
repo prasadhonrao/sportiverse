@@ -117,7 +117,7 @@ runs:
         elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
           pnpm test:coverage
         fi
-        
+
         # Extract coverage percentage if available
         if [ -f "coverage/lcov.info" ]; then
           # Try to extract coverage percentage from various sources

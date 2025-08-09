@@ -84,7 +84,7 @@ runs:
         app-name: ${{ steps.app-name.outputs.name }}
         slot-name: ${{ inputs.slot-name }}
         package: ./deployment/app
-        
+
     - name: Extract Deployment URL
       id: url
       shell: bash
@@ -112,9 +112,9 @@ runs:
         if [ -z "${HEALTH_URL}" ]; then
           HEALTH_URL="${{ steps.url.outputs.url }}/health"
         fi
-        
+
         echo "🏥 Performing health check at: ${HEALTH_URL}"
-        
+
         # Retry health check up to 5 times
         for i in {1..5}; do
           echo "Attempt $i/5..."
@@ -127,7 +127,7 @@ runs:
             sleep 10
           fi
         done
-        
+
         echo "❌ Health check failed after 5 attempts"
         echo "status=unhealthy" >> $GITHUB_OUTPUT
         exit 1
