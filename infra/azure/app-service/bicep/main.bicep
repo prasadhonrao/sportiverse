@@ -82,14 +82,15 @@ output resourceGroupName string = rg.name
 @description('Resource Token')
 output resourceToken string = resourceToken
 
-@description('Key Vault Name')
-output keyVaultName string = resourceGroup.outputs.keyVaultName
+// Temporarily disabled Key Vault outputs for troubleshooting
+// @description('Key Vault Name')
+// output keyVaultName string = resourceGroup.outputs.keyVaultName
 
-@description('Key Vault URI')
-output keyVaultUri string = resourceGroup.outputs.keyVaultUri
+// @description('Key Vault URI')
+// output keyVaultUri string = resourceGroup.outputs.keyVaultUri
 
-@description('Web API Principal ID')
-output webApiPrincipalId string = resourceGroup.outputs.webApiPrincipalId
+// @description('Web API Principal ID')
+// output webApiPrincipalId string = resourceGroup.outputs.webApiPrincipalId
 
-@description('Web App Principal ID')
-output webAppPrincipalId string = resourceGroup.outputs.webAppPrincipalId
+// @description('Web App Principal ID')
+// output webAppPrincipalId string = resourceGroup.outputs.webAppPrincipalId

@@ -95,8 +95,9 @@ jobs:
       webapp-name: ${{ steps.deploy.outputs.webAppName }}
       resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
       cosmos-connection: ${{ steps.deploy.outputs.cosmosConnectionString }}
-      keyvault-name: ${{ steps.deploy.outputs.keyVaultName }}
-      keyvault-uri: ${{ steps.deploy.outputs.keyVaultUri }}
+      # Temporarily disabled Key Vault outputs for troubleshooting
+      # keyvault-name: ${{ steps.deploy.outputs.keyVaultName }}
+      # keyvault-uri: ${{ steps.deploy.outputs.keyVaultUri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,20 +119,14 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
-          # Deploy and capture results
-          echo "🔄 Creating Azure deployment..."
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/dev.parameters.json \
-            --output table
+            --output none
 
-          # Wait a moment for Azure to process
-          echo "⏳ Waiting for deployment to stabilize..."
-          sleep 10
-
-          echo "📋 Retrieving deployment outputs..."
+          echo "� Retrieving deployment outputs..."
           az deployment sub show \
             --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs" \
@@ -142,19 +137,20 @@ jobs:
           webapp_name=$(jq -r '.webAppUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           resource_group=$(jq -r '.resourceGroupName.value' deployment_outputs.json)
           cosmos_connection=$(jq -r '.cosmosDbConnectionString.value // empty' deployment_outputs.json)
-          keyvault_name=$(jq -r '.keyVaultName.value' deployment_outputs.json)
-          keyvault_uri=$(jq -r '.keyVaultUri.value' deployment_outputs.json)
+          # Temporarily disabled Key Vault outputs for troubleshooting
+          # keyvault_name=$(jq -r '.keyVaultName.value' deployment_outputs.json)
+          # keyvault_uri=$(jq -r '.keyVaultUri.value' deployment_outputs.json)
 
           # Store in GitHub outputs for other workflows
           echo "apiName=$api_name" >> $GITHUB_OUTPUT
           echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
           echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
           echo "cosmosConnectionString=$cosmos_connection" >> $GITHUB_OUTPUT
-          echo "keyVaultName=$keyvault_name" >> $GITHUB_OUTPUT
-          echo "keyVaultUri=$keyvault_uri" >> $GITHUB_OUTPUT
+          # echo "keyVaultName=$keyvault_name" >> $GITHUB_OUTPUT
+          # echo "keyVaultUri=$keyvault_uri" >> $GITHUB_OUTPUT
 
           echo "✅ Development infrastructure deployed successfully!"
-          echo "🔗 API: $api_name | Web: $webapp_name | RG: $resource_group | KV: $keyvault_name"
+          echo "🔗 API: $api_name | Web: $webapp_name | RG: $resource_group"
 
       - name: Store Infrastructure State
         run: |
@@ -198,24 +194,26 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
-          # Deploy and capture results
+          # Clear any cached Azure CLI state
+          echo "🔄 Clearing Azure CLI cache..."
+          az account clear || true
+          az login --service-principal \
+            -u "${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientId }}" \
+            -p "${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).clientSecret }}" \
+            --tenant "${{ fromJson(secrets.AZURE_SERVICE_PRINCIPAL).tenantId }}"
+
+          # Deploy and capture results in one step
           echo "🔄 Creating Azure deployment..."
-          az deployment sub create \
+          DEPLOYMENT_OUTPUT=$(az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/prod.parameters.json \
-            --output table
-
-          # Wait a moment for Azure to process
-          echo "⏳ Waiting for deployment to stabilize..."
-          sleep 10
-
-          echo "📋 Retrieving deployment outputs..."
-          az deployment sub show \
-            --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs" \
-            --output json > deployment_outputs.json
+            --output json 2>/dev/null)
+
+          echo "📋 Processing deployment outputs..."
+          echo "$DEPLOYMENT_OUTPUT" > deployment_outputs.json
 
           # Extract outputs
           api_name=$(jq -r '.apiUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
