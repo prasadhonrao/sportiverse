@@ -112,25 +112,26 @@ jobs:
           cd infra/azure/app-service/bicep
 
           echo "🚀 Deploying infrastructure to DEVELOPMENT environment..."
-          echo "📋 Changes may include:"
-          echo "   - Node.js runtime version updates"
-          echo "   - MongoDB server version updates"
-          echo "   - Infrastructure configuration changes"
-          echo "   - Deployment reason: ${{ github.event.inputs.deploy_reason || 'Automated from code changes' }}"
+          echo "   Deployment reason: ${{ github.event.inputs.deploy_reason || 'Automated from code changes' }}"
 
-          # Deploy with development parameters
-          echo "📦 Starting Azure deployment..."
+          # Deploy infrastructure
+          DEPLOYMENT_NAME="sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)"
+          echo "📦 Starting deployment: $DEPLOYMENT_NAME"
+
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
-            --name "sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)" \
+            --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/dev.parameters.json \
+            --output none
+
+          echo "📋 Retrieving deployment outputs..."
+          az deployment sub show \
+            --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs" \
             --output json > deployment_outputs.json
 
-          echo "📋 Deployment completed, processing outputs..."
-
-          # Extract and set outputs from the saved file
+          # Extract and set outputs
           api_name=$(jq -r '.apiUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           webapp_name=$(jq -r '.webAppUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           resource_group=$(jq -r '.resourceGroupName.value' deployment_outputs.json)
@@ -147,11 +148,7 @@ jobs:
           echo "keyVaultUri=$keyvault_uri" >> $GITHUB_OUTPUT
 
           echo "✅ Development infrastructure deployed successfully!"
-          echo "🔗 API Service: $api_name"
-          echo "🔗 Web App: $webapp_name"
-          echo "📦 Resource Group: $resource_group"
-          echo "🔐 Key Vault: $keyvault_name"
-          echo "🆕 Updated with latest Node.js and MongoDB versions"
+          echo "🔗 API: $api_name | Web: $webapp_name | RG: $resource_group | KV: $keyvault_name"
 
       - name: Store Infrastructure State
         run: |
@@ -191,18 +188,24 @@ jobs:
 
           echo "🚀 Deploying infrastructure to PRODUCTION environment..."
 
-          echo "📦 Starting Azure deployment..."
+          # Deploy infrastructure  
+          DEPLOYMENT_NAME="sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)"
+          echo "📦 Starting deployment: $DEPLOYMENT_NAME"
+
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
-            --name "sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)" \
+            --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/prod.parameters.json \
+            --output none
+
+          echo "📋 Retrieving deployment outputs..."
+          az deployment sub show \
+            --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs" \
             --output json > deployment_outputs.json
 
-          echo "📋 Deployment completed, processing outputs..."
-
-          # Extract outputs from the saved file
+          # Extract outputs
           api_name=$(jq -r '.apiUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           webapp_name=$(jq -r '.webAppUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           resource_group=$(jq -r '.resourceGroupName.value' deployment_outputs.json)
