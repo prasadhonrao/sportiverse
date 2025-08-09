@@ -118,12 +118,18 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
+          # Deploy and capture results
+          echo "🔄 Creating Azure deployment..."
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/dev.parameters.json \
-            --output none
+            --output table
+
+          # Wait a moment for Azure to process
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 10
 
           echo "📋 Retrieving deployment outputs..."
           az deployment sub show \
@@ -192,12 +198,18 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
+          # Deploy and capture results
+          echo "🔄 Creating Azure deployment..."
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
             --template-file main.bicep \
             --parameters environments/prod.parameters.json \
-            --output none
+            --output table
+
+          # Wait a moment for Azure to process
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 10
 
           echo "📋 Retrieving deployment outputs..."
           az deployment sub show \
