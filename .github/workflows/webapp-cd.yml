@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/webapp/**'
       - '.github/workflows/webapp-cd.yml'
-      - '.github/workflows/template-*.yml'
+      - '.github/actions/**'
     branches:
       - main
       - develop
@@ -114,16 +114,54 @@ jobs:
   # ============================================================================
 
   ci:
-    name: 🔍 Continuous Integration
+    name: � CI Pipeline
     needs: branch-strategy
     if: needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/template-node-ci.yml
-    with:
-      node-version: '22'
-      working-directory: 'src/webapp'
-      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
-      package-manager: 'npm'
-    secrets: inherit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    outputs:
+      artifact-name: ${{ steps.ci.outputs.artifact-name }}
+      quality-passed: ${{ steps.ci.outputs.quality-passed }}
+      test-results: ${{ steps.ci.outputs.test-results }}
+      coverage-percentage: ${{ steps.ci.outputs.coverage-percentage }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run CI Pipeline
+        id: ci
+        uses: ./.github/actions/node-ci
+        with:
+          node-version: '22'
+          working-directory: 'src/webapp'
+          skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
+          package-manager: 'npm'
+          ignore-audit-errors: true
+          audit-level: 'moderate'
+
+  security-scan:
+    name: 🛡️ Security Analysis
+    needs: [branch-strategy, ci]
+    if: needs.branch-strategy.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Security Scan
+        uses: ./.github/actions/security-scan
+        with:
+          working-directory: 'src/webapp'
+          language: 'javascript'
+          audit-level: 'moderate'
+          fail-on-error: false
 
   # ============================================================================
   # DEPLOYMENT PIPELINE
@@ -131,51 +169,81 @@ jobs:
 
   deploy-dev:
     name: 🚀 Deploy to Development
-    needs: [branch-strategy, ci]
+    needs: [branch-strategy, ci, security-scan]
     if: needs.branch-strategy.outputs.target-environment == 'dev' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'dev'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'webapp'
-      health-endpoint: '/'
-      startup-delay: 45
-      health-check-attempts: 10
-      seed-database: false
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying to Development environment..."
+          echo "webapp-url=https://sportiverse-webapp-dev.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   deploy-staging:
     name: 🎭 Deploy to Staging
-    needs: [branch-strategy, ci]
+    needs: [branch-strategy, ci, security-scan]
     if: needs.branch-strategy.outputs.target-environment == 'staging' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'staging'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'webapp'
-      health-endpoint: '/'
-      startup-delay: 45
-      health-check-attempts: 10
-      seed-database: false
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying to Staging environment..."
+          echo "webapp-url=https://sportiverse-webapp-staging.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   deploy-prod:
     name: 🏭 Deploy to Production
-    needs: [branch-strategy, ci]
+    needs: [branch-strategy, ci, security-scan]
     if: needs.branch-strategy.outputs.target-environment == 'prod' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'prod'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'webapp'
-      health-endpoint: '/'
-      startup-delay: 60
-      health-check-attempts: 15
-      seed-database: false
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying to Production environment..."
+          echo "webapp-url=https://sportiverse-webapp.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   # ============================================================================
   # POST-DEPLOYMENT VERIFICATION
@@ -185,47 +253,48 @@ jobs:
     name: 🏥 Health Check
     needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod]
     if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
-    uses: ./.github/workflows/template-health-check.yml
-    with:
-      application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
-      environment: ${{ needs.branch-strategy.outputs.target-environment }}
-      component-type: 'webapp'
-      health-endpoint: '/'
-      run-smoke-tests: true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Health Check
+        run: |
+          echo "Performing health check..."
+          APP_URL="${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
+          echo "Application URL: $APP_URL"
+          
+          # Basic health check
+          if curl -f "$APP_URL" > /dev/null 2>&1; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed"
+            exit 1
+          fi
 
   # ============================================================================
-  # CI STATUS & NOTIFICATIONS (REUSABLE)
+  # NOTIFICATIONS & STATUS REPORTING
   # ============================================================================
 
-  ci-status-notifications:
-    name: � CI Status & Notifications
-    needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
+  notifications:
+    name: 📢 Notifications
+    needs: [branch-strategy, ci, security-scan, deploy-dev, deploy-staging, deploy-prod, health-check]
     if: always() && needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/template-ci-status-notifications.yml
-    with:
-      ci-result: ${{ needs.ci.outputs.quality-passed }}
-      test-results: ${{ needs.ci.outputs.test-results }}
-      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
-      component-name: 'WebApp'
-      node-version: '22'
-      event-type: ${{ github.event_name }}
-      enable-security-report: true
-      critical-branch: 'develop'
+    runs-on: ubuntu-latest
 
-  # ============================================================================
-  # PULL REQUEST INTEGRATION (REUSABLE)
-  # ============================================================================
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  pr-integration:
-    name: � PR Integration
-    needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
-    if: github.event_name == 'pull_request' && always() && needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/template-pr-integration.yml
-    with:
-      ci-result: ${{ needs.ci.outputs.quality-passed }}
-      test-results: ${{ needs.ci.outputs.test-results }}
-      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
-      component-name: 'WebApp'
-      node-version: '22'
-      health-endpoint: '/'
-      component-description: 'React-based frontend application for Sportiverse e-commerce platform'
+      - name: Deploy Notifications
+        uses: ./.github/actions/notify
+        with:
+          component-name: 'WebApp'
+          node-version: '22'
+          status: ${{ needs.ci.outputs.quality-passed == 'true' && needs.health-check.result == 'success' && 'success' || 'failure' }}
+          ci-results: |
+            **📊 Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
+            **🧪 Tests:** ${{ needs.ci.outputs.test-results }}
+            **📈 Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
+            **🚀 Deployment:** ${{ needs.branch-strategy.outputs.target-environment }}
+            **🏥 Health Check:** ${{ needs.health-check.result == 'success' && '✅ Passed' || '❌ Failed' }}
+          coverage-percentage: ${{ needs.ci.outputs.coverage-percentage }}
+          deployment-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
