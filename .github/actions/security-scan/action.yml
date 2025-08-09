@@ -1,0 +1,191 @@
+name: 'Security Analysis'
+description: 'Comprehensive security scanning with CodeQL, dependency vulnerabilities, and SAST analysis'
+author: 'Sportiverse Team'
+
+inputs:
+  working-directory:
+    description: 'Working directory for the project'
+    required: true
+  language:
+    description: 'Programming language for CodeQL analysis'
+    required: false
+    default: 'javascript'
+  codeql-queries:
+    description: 'CodeQL query suite to run'
+    required: false
+    default: '+security-and-quality'
+  fail-on-error:
+    description: 'Fail the action if security issues are found'
+    required: false
+    default: 'false'
+  dependency-check:
+    description: 'Run dependency vulnerability check'
+    required: false
+    default: 'true'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+
+outputs:
+  codeql-status:
+    description: 'CodeQL analysis status (success/failure)'
+    value: ${{ steps.codeql-analysis.outputs.status }}
+  dependency-status:
+    description: 'Dependency check status (success/failure)'
+    value: ${{ steps.dependency-check.outputs.status }}
+  issues-found:
+    description: 'Number of security issues found'
+    value: ${{ steps.summary.outputs.issues }}
+  security-score:
+    description: 'Overall security score (0-100)'
+    value: ${{ steps.summary.outputs.score }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Initialize CodeQL
+      id: init-codeql
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ inputs.language }}
+        queries: ${{ inputs.codeql-queries }}
+        config: |
+          name: "Sportiverse Security Analysis"
+
+          query-filters:
+            - exclude:
+                id: js/unused-local-variable
+            - include:
+                kind: problem
+                severity: error
+
+    - name: Setup Node.js for Dependencies
+      if: inputs.dependency-check == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Install Dependencies for Analysis
+      if: inputs.dependency-check == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "📦 Installing dependencies for security analysis..."
+        npm ci
+
+    - name: Run Dependency Security Audit
+      id: dependency-check
+      if: inputs.dependency-check == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "🔍 Running dependency vulnerability scan..."
+
+        # Run audit and capture results
+        if npm audit --audit-level=moderate --json > audit-results.json 2>&1; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ No high/critical vulnerabilities found"
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "⚠️ Vulnerabilities detected:"
+          
+          # Extract and display vulnerability summary
+          if [ -f "audit-results.json" ]; then
+            cat audit-results.json | jq -r '.vulnerabilities | to_entries[] | "\(.key): \(.value.severity)"' 2>/dev/null || echo "Unable to parse audit results"
+          fi
+          
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            echo "❌ Failing due to security vulnerabilities"
+            exit 1
+          fi
+        fi
+
+    - name: Autobuild for CodeQL
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      id: codeql-analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        upload: ${{ inputs.upload-sarif }}
+        output: ${{ inputs.working-directory }}/codeql-results
+
+    - name: Process CodeQL Results
+      id: process-results
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "📊 Processing security analysis results..."
+
+        ISSUES_COUNT=0
+        if [ -d "codeql-results" ]; then
+          # Count issues from SARIF files
+          for sarif in codeql-results/*.sarif; do
+            if [ -f "$sarif" ]; then
+              SARIF_ISSUES=$(cat "$sarif" | jq '.runs[].results | length' 2>/dev/null || echo "0")
+              ISSUES_COUNT=$((ISSUES_COUNT + SARIF_ISSUES))
+            fi
+          done
+        fi
+
+        echo "Found $ISSUES_COUNT security issues"
+        echo "issues=$ISSUES_COUNT" >> $GITHUB_OUTPUT
+
+        if [ $ISSUES_COUNT -eq 0 ]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate Security Summary
+      id: summary
+      shell: bash
+      run: |
+        CODEQL_STATUS="${{ steps.codeql-analysis.outputs.status || 'success' }}"
+        DEPENDENCY_STATUS="${{ steps.dependency-check.outputs.status || 'success' }}"
+        ISSUES_COUNT="${{ steps.process-results.outputs.issues || '0' }}"
+
+        # Calculate security score (0-100)
+        SCORE=100
+        if [ "$CODEQL_STATUS" = "failure" ]; then
+          SCORE=$((SCORE - 30))
+        fi
+        if [ "$DEPENDENCY_STATUS" = "failure" ]; then
+          SCORE=$((SCORE - 40))
+        fi
+        if [ $ISSUES_COUNT -gt 0 ]; then
+          PENALTY=$((ISSUES_COUNT * 5))
+          SCORE=$((SCORE - PENALTY))
+        fi
+
+        # Ensure score doesn't go below 0
+        if [ $SCORE -lt 0 ]; then
+          SCORE=0
+        fi
+
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "issues=$ISSUES_COUNT" >> $GITHUB_OUTPUT
+
+        echo "🛡️ Security Analysis Summary"
+        echo "============================"
+        echo "CodeQL Analysis: $CODEQL_STATUS"
+        echo "Dependency Check: $DEPENDENCY_STATUS"
+        echo "Issues Found: $ISSUES_COUNT"
+        echo "Security Score: $SCORE/100"
+
+        if [ $SCORE -ge 90 ]; then
+          echo "🏆 Excellent security posture!"
+        elif [ $SCORE -ge 70 ]; then
+          echo "✅ Good security practices"
+        elif [ $SCORE -ge 50 ]; then
+          echo "⚠️ Security improvements needed"
+        else
+          echo "❌ Critical security issues require attention"
+        fi
+
+branding:
+  icon: 'shield'
+  color: 'blue'

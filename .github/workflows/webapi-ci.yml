@@ -72,6 +72,52 @@ jobs:
           upload-coverage: 'true'
 
   # ============================================================================
+  # ADVANCED SECURITY SCANNING
+  # ============================================================================
+
+  security-scan:
+    name: ��� Security Analysis
+    runs-on: ubuntu-latest
+    needs: ci
+    if: always()
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Advanced Security Scan
+        uses: ./.github/actions/security-scan
+        with:
+          working-directory: 'src/webapi'
+          language: 'javascript'
+          dependency-check: 'true'
+          upload-sarif: 'true'
+          fail-on-critical: 'false'
+
+  docker-security:
+    name: ��� Docker Security
+    runs-on: ubuntu-latest
+    needs: ci
+    if: success()
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: |
+          cd src/webapi
+          docker build -t sportiverse-webapi:latest .
+
+      - name: Docker Security Scan
+        uses: ./.github/actions/docker-security
+        with:
+          image-ref: 'sportiverse-webapi:latest'
+          dockerfile-path: 'src/webapi/Dockerfile'
+          fail-on-severity: 'CRITICAL'
+          upload-results: 'true'
+
+  # ============================================================================
   # PULL REQUEST INTEGRATION
   # ============================================================================
 
