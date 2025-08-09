@@ -23,17 +23,8 @@
     "enableZoneRedundancy": {
       "value": false
     },
-    "paypalClientId": {
-      "value": "test-paypal-client-id"
-    },
-    "paypalAppSecret": {
-      "value": "test-paypal-app-secret"
-    },
     "paypalApiUrl": {
       "value": "https://api-m.sandbox.paypal.com"
-    },
-    "jwtSecret": {
-      "value": "test-jwt-secret-sportiverse-2024"
     }
   }
 }
