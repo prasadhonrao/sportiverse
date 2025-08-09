@@ -25,20 +25,8 @@ param nodeVersion string
 @description('Enable zone redundancy for Cosmos DB')
 param enableZoneRedundancy bool
 
-@description('PayPal Client ID for payment processing')
-@secure()
-param paypalClientId string
-
-@description('PayPal App Secret for payment processing')
-@secure()
-param paypalAppSecret string
-
 @description('PayPal API URL (sandbox or production)')
 param paypalApiUrl string
-
-@description('JWT Secret for authentication')
-@secure()
-param jwtSecret string
 
 @description('Tags to apply to all resources')
 param tags object
@@ -51,6 +39,20 @@ module appServicePlan '../app-service/appServicePlan.bicep' = {
     location: location
     sku: appServicePlanSku
     tags: tags
+  }
+}
+
+// Module: Key Vault
+module keyVault '../security/keyVault.bicep' = {
+  name: 'keyVault-${resourceToken}'
+  params: {
+    name: '${appName}-kv-${environmentName}-${resourceToken}'
+    location: location
+    enablePurgeProtection: environmentName == 'prod' ? true : false  // Enable for production
+    tags: union(tags, {
+      'sportiverse-component': 'keyvault'
+      'sportiverse-service-type': 'secrets'
+    })
   }
 }
 
@@ -94,12 +96,9 @@ module webApi '../app-service/webApi.bicep' = {
     appServicePlanId: appServicePlan.outputs.id
     nodeVersion: nodeVersion
     cosmosDbAccountName: cosmosDb.outputs.accountName
-    cosmosDbPrimaryKey: cosmosDb.outputs.primaryKey
-    jwtSecret: jwtSecret
-    paypalClientId: paypalClientId
-    paypalAppSecret: paypalAppSecret
     paypalApiUrl: paypalApiUrl
     webAppUrl: webApp.outputs.defaultHostName
+    keyVaultName: keyVault.outputs.name
     tags: union(tags, {
       'sportiverse-component': 'api'
       'sportiverse-service-type': 'webapi'
@@ -120,6 +119,29 @@ module webAppUpdate '../app-service/webApp.bicep' = {
   }
 }
 
+// Role assignments for Key Vault access
+var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+
+// Grant WebAPI access to Key Vault
+resource webApiKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.name, webApi.name, keyVaultSecretsUserRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+    principalId: webApi.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Grant WebApp access to Key Vault (if needed for runtime config)
+resource webAppKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.name, webAppUpdate.name, keyVaultSecretsUserRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+    principalId: webAppUpdate.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Outputs
 @description('Web App URL')
 output webAppUrl string = 'https://${webAppUpdate.outputs.defaultHostName}'
@@ -133,3 +155,15 @@ output cosmosDbAccountName string = cosmosDb.outputs.accountName
 @description('Cosmos DB Connection String (use with caution)')
 @secure()
 output cosmosDbConnectionString string = cosmosDb.outputs.primaryConnectionString
+
+@description('Key Vault Name')
+output keyVaultName string = keyVault.outputs.name
+
+@description('Key Vault URI')
+output keyVaultUri string = keyVault.outputs.vaultUri
+
+@description('Web API Principal ID')
+output webApiPrincipalId string = webApi.outputs.principalId
+
+@description('Web App Principal ID')
+output webAppPrincipalId string = webAppUpdate.outputs.principalId

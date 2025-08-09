@@ -17,7 +17,6 @@ on:
         type: choice
         options:
           - 'dev'
-          - 'staging'
           - 'prod'
       force_deploy:
         description: 'Force deployment even if no changes detected'
@@ -96,6 +95,8 @@ jobs:
       webapp-name: ${{ steps.deploy.outputs.webAppName }}
       resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
       cosmos-connection: ${{ steps.deploy.outputs.cosmosConnectionString }}
+      keyvault-name: ${{ steps.deploy.outputs.keyVaultName }}
+      keyvault-uri: ${{ steps.deploy.outputs.keyVaultUri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -131,17 +132,22 @@ jobs:
           webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
           resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
           cosmos_connection=$(echo $deployment_output | jq -r '.cosmosDbConnectionString.value // empty')
+          keyvault_name=$(echo $deployment_output | jq -r '.keyVaultName.value')
+          keyvault_uri=$(echo $deployment_output | jq -r '.keyVaultUri.value')
 
           # Store in GitHub outputs for other workflows
           echo "apiName=$api_name" >> $GITHUB_OUTPUT
           echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
           echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
           echo "cosmosConnectionString=$cosmos_connection" >> $GITHUB_OUTPUT
+          echo "keyVaultName=$keyvault_name" >> $GITHUB_OUTPUT
+          echo "keyVaultUri=$keyvault_uri" >> $GITHUB_OUTPUT
 
           echo "✅ Development infrastructure deployed successfully!"
           echo "🔗 API Service: $api_name"
           echo "🔗 Web App: $webapp_name"
           echo "📦 Resource Group: $resource_group"
+          echo "🔐 Key Vault: $keyvault_name"
           echo "🆕 Updated with latest Node.js and MongoDB versions"
 
       - name: Store Infrastructure State
@@ -153,53 +159,6 @@ jobs:
           DEV_WEBAPP_NAME=${{ steps.deploy.outputs.webAppName }}
           DEV_RESOURCE_GROUP=${{ steps.deploy.outputs.resourceGroupName }}
           EOF
-
-  deploy-infrastructure-staging:
-    name: 🏗️ Deploy Infrastructure (Staging)
-    runs-on: ubuntu-latest
-    needs: validate-bicep
-    if: |
-      (github.ref == 'refs/heads/develop' && github.event_name == 'push') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging') ||
-      (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-staging]'))
-    outputs:
-      api-name: ${{ steps.deploy.outputs.apiName }}
-      webapp-name: ${{ steps.deploy.outputs.webAppName }}
-      resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
-
-      - name: Deploy Infrastructure
-        id: deploy
-        run: |
-          cd infra/azure/app-service/bicep
-
-          echo "🚀 Deploying infrastructure to STAGING environment..."
-
-          deployment_output=$(az deployment sub create \
-            --location ${{ env.AZURE_REGION }} \
-            --name "sportiverse-infra-staging-$(date +%Y%m%d-%H%M%S)" \
-            --template-file main.bicep \
-            --parameters environments/staging.parameters.json \
-            --query "properties.outputs" \
-            --output json)
-
-          # Extract outputs
-          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
-
-          echo "apiName=$api_name" >> $GITHUB_OUTPUT
-          echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
-          echo "resourceGroupName=$resource_group" >> $GITHUB_OUTPUT
-
-          echo "✅ Staging infrastructure deployed successfully!"
 
   deploy-infrastructure-prod:
     name: 🏗️ Deploy Infrastructure (Production)
@@ -249,13 +208,151 @@ jobs:
           echo "✅ Production infrastructure deployed successfully!"
 
   # ============================================================================
+  # AZURE KEY VAULT SECRET SEEDING
+  # ============================================================================
+
+  seed-dev-secrets:
+    name: 🔐 Seed Development Secrets
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure-dev
+    if: needs.deploy-infrastructure-dev.result == 'success'
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Discover Key Vault by tags
+        id: discover
+        run: |
+          echo "🔍 Discovering Key Vault for development environment..."
+
+          # Discover Key Vault by tags
+          KV_LINE=$(az resource list \
+            --resource-type Microsoft.KeyVault/vaults \
+            --query "[?tags['sportiverse-project']=='sportiverse' && tags['sportiverse-component']=='keyvault' && tags['sportiverse-environment']=='dev'].[name,resourceGroup]" \
+            -o tsv | head -n1)
+
+          if [ -z "$KV_LINE" ]; then
+            echo "❌ Key Vault not found by tags. Infrastructure may still be deploying."
+            exit 1
+          fi
+
+          KV_NAME=$(echo "$KV_LINE" | awk '{print $1}')
+          RG_NAME=$(echo "$KV_LINE" | awk '{print $2}')
+
+          echo "keyvault-name=$KV_NAME" >> $GITHUB_OUTPUT
+          echo "resource-group=$RG_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Discovered Key Vault: $KV_NAME in $RG_NAME"
+
+      - name: Discover Cosmos DB primary key
+        id: cosmos
+        run: |
+          echo "🔍 Getting Cosmos DB primary key for development..."
+
+          # Discover Cosmos DB by tags
+          COSMOS_LINE=$(az resource list \
+            --resource-type Microsoft.DocumentDB/databaseAccounts \
+            --query "[?tags['sportiverse-project']=='sportiverse' && tags['sportiverse-component']=='database' && tags['sportiverse-environment']=='dev'].[name,resourceGroup]" \
+            -o tsv | head -n1)
+
+          if [ -z "$COSMOS_LINE" ]; then
+            echo "❌ Cosmos DB not found by tags"
+            exit 1
+          fi
+
+          COSMOS_NAME=$(echo "$COSMOS_LINE" | awk '{print $1}')
+          COSMOS_RG=$(echo "$COSMOS_LINE" | awk '{print $2}')
+
+          # Get primary key
+          COSMOS_KEY=$(az cosmosdb keys list \
+            --name "$COSMOS_NAME" \
+            --resource-group "$COSMOS_RG" \
+            --query "primaryMasterKey" \
+            -o tsv)
+
+          echo "cosmos-key=$COSMOS_KEY" >> $GITHUB_OUTPUT
+          echo "✅ Retrieved Cosmos DB primary key"
+
+      - name: Seed development secrets
+        run: |
+          echo "🔐 Seeding development secrets to Key Vault..."
+
+          KV_NAME="${{ steps.discover.outputs.keyvault-name }}"
+          COSMOS_KEY="${{ steps.cosmos.outputs.cosmos-key }}"
+
+          # Seed secrets from GitHub Secrets (development values)
+          az keyvault secret set \
+            --vault-name "$KV_NAME" \
+            --name "JWT_SECRET" \
+            --value "${{ secrets.DEV_JWT_SECRET }}" \
+            --description "JWT secret for development environment"
+
+          az keyvault secret set \
+            --vault-name "$KV_NAME" \
+            --name "PAYPAL_CLIENT_ID" \
+            --value "${{ secrets.DEV_PAYPAL_CLIENT_ID }}" \
+            --description "PayPal client ID for development (sandbox)"
+
+          az keyvault secret set \
+            --vault-name "$KV_NAME" \
+            --name "PAYPAL_APP_SECRET" \
+            --value "${{ secrets.DEV_PAYPAL_APP_SECRET }}" \
+            --description "PayPal app secret for development (sandbox)"
+
+          az keyvault secret set \
+            --vault-name "$KV_NAME" \
+            --name "MONGODB_PASSWORD" \
+            --value "$COSMOS_KEY" \
+            --description "Cosmos DB primary key for development"
+
+          echo "✅ Development secrets seeded successfully!"
+          echo "🔐 Secrets configured in Key Vault: $KV_NAME"
+
+  manual-prod-secrets:
+    name: 📋 Production Secrets Instructions
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure-prod
+    if: needs.deploy-infrastructure-prod.result == 'success'
+    steps:
+      - name: Display production secret instructions
+        run: |
+          echo "🔐 PRODUCTION SECRETS SETUP REQUIRED"
+          echo "================================================"
+          echo ""
+          echo "📋 Manual setup required for production secrets:"
+          echo ""
+          echo "1. Discover your production Key Vault:"
+          echo "   az resource list --resource-type Microsoft.KeyVault/vaults \\"
+          echo "     --query \"[?tags['sportiverse-project']=='sportiverse' && tags['sportiverse-component']=='keyvault' && tags['sportiverse-environment']=='prod'].[name,resourceGroup]\" \\"
+          echo "     -o table"
+          echo ""
+          echo "2. Set production secrets (replace VAULT_NAME with actual name):"
+          echo "   VAULT_NAME=\"sportiverse-kv-prod-xxxxxxx\""
+          echo "   az keyvault secret set --vault-name \"\$VAULT_NAME\" --name \"JWT_SECRET\" --value \"your-production-jwt-secret\""
+          echo "   az keyvault secret set --vault-name \"\$VAULT_NAME\" --name \"PAYPAL_CLIENT_ID\" --value \"your-live-paypal-client-id\""
+          echo "   az keyvault secret set --vault-name \"\$VAULT_NAME\" --name \"PAYPAL_APP_SECRET\" --value \"your-live-paypal-secret\""
+          echo ""
+          echo "3. Set Cosmos DB password:"
+          echo "   COSMOS_KEY=\$(az cosmosdb keys list --name \"cosmos-name\" --resource-group \"rg-name\" --query \"primaryMasterKey\" -o tsv)"
+          echo "   az keyvault secret set --vault-name \"\$VAULT_NAME\" --name \"MONGODB_PASSWORD\" --value \"\$COSMOS_KEY\""
+          echo ""
+          echo "⚠️  SECURITY REMINDER:"
+          echo "   - Never commit production secrets to version control"
+          echo "   - Use separate PayPal live credentials (not sandbox)"
+          echo "   - Generate a secure JWT secret for production"
+          echo "   - Consider using managed identity for Cosmos DB in the future"
+          echo ""
+          echo "📖 Full documentation: docs/key-vault-secrets.md"
+
+  # ============================================================================
   # INFRASTRUCTURE DRIFT DETECTION
   # ============================================================================
 
   drift-detection:
     name: 🔍 Infrastructure Drift Detection
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-prod, seed-dev-secrets]
     if: always() && (success() || failure())
     steps:
       - name: Check Infrastructure Drift
@@ -275,7 +372,7 @@ jobs:
   notify-infrastructure-success:
     name: 📧 Infrastructure Success Notification
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-prod, seed-dev-secrets, manual-prod-secrets]
     if: success() && always()
     steps:
       - name: Send Success Notification
@@ -285,11 +382,23 @@ jobs:
           echo "Environment: ${{ github.event.inputs.environment || 'auto-detected' }}"
           echo "Commit: ${{ github.sha }}"
           echo "Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "📋 Deployment Summary:"
+          if [ "${{ needs.deploy-infrastructure-dev.result }}" = "success" ]; then
+            echo "✅ Development infrastructure deployed"
+            if [ "${{ needs.seed-dev-secrets.result }}" = "success" ]; then
+              echo "✅ Development secrets seeded automatically"
+            fi
+          fi
+          if [ "${{ needs.deploy-infrastructure-prod.result }}" = "success" ]; then
+            echo "✅ Production infrastructure deployed"
+            echo "⚠️  Production secrets require manual setup - see job logs"
+          fi
 
   notify-infrastructure-failure:
     name: 🚨 Infrastructure Failure Notification
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure-dev, deploy-infrastructure-staging, deploy-infrastructure-prod]
+    needs: [deploy-infrastructure-dev, deploy-infrastructure-prod, seed-dev-secrets, manual-prod-secrets]
     if: failure() && always()
     steps:
       - name: Send Failure Notification

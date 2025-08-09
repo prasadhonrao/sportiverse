@@ -9,7 +9,7 @@ The `AZURE_SERVICE_PRINCIPAL` secret is required for GitHub Actions to authentic
 ## 🔐 Security Principles
 
 - **Least Privilege**: Service principal gets only the permissions needed
-- **Environment Isolation**: Separate service principals per environment (dev/staging/prod)
+- **Environment Isolation**: Separate service principals per environment (dev/prod)
 - **Credential Rotation**: Easy to rotate credentials when needed
 
 ## 📋 Prerequisites
@@ -84,7 +84,7 @@ gh auth login
 
 - ✅ **No path conversion issues**: Works reliably on Windows without Git Bash path mangling
 - ✅ **Automatically adds secrets**: Integrates with GitHub CLI to add secrets directly
-- ✅ **Environment-specific naming**: Handles dev/staging/prod secret naming automatically
+- ✅ **Environment-specific naming**: Handles dev/prod secret naming automatically
 - ✅ **Immediate feedback**: Shows success/failure status immediately
 - ✅ **Simple and reliable**: Uses the proven `az ad sp create-for-rbac` approach
 
@@ -171,9 +171,6 @@ For production-ready deployments, create separate service principals with automa
 # Development environment
 .\simple-sp-setup.ps1 "sub-id" "dev"
 
-# Staging environment
-.\simple-sp-setup.ps1 "sub-id" "staging"
-
 # Production environment
 .\simple-sp-setup.ps1 "sub-id" "prod"
 ```
@@ -181,7 +178,6 @@ For production-ready deployments, create separate service principals with automa
 The script automatically creates environment-specific secret names:
 
 - `AZURE_SERVICE_PRINCIPAL` (for dev environment)
-- `AZURE_SERVICE_PRINCIPAL_STAGING` (for staging environment)
 - `AZURE_SERVICE_PRINCIPAL_PROD` (for production environment)
 
 ## ✅ Verification

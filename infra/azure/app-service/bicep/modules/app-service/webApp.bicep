@@ -21,6 +21,9 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   name: name
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   kind: 'app,linux'
   properties: {
     serverFarmId: appServicePlanId
@@ -94,6 +97,9 @@ output id string = webApp.id
 
 @description('Web App default hostname')
 output defaultHostName string = webApp.properties.defaultHostName
+
+@description('Web App principal ID')
+output principalId string = webApp.identity.principalId
 
 @description('Web App possible outbound IP addresses')
 output possibleOutboundIpAddresses string = webApp.properties.possibleOutboundIpAddresses

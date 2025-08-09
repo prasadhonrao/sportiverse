@@ -13,27 +13,14 @@ param nodeVersion string
 @description('Cosmos DB account name (extracted from connection string)')
 param cosmosDbAccountName string
 
-@description('Cosmos DB primary key')
-@secure()
-param cosmosDbPrimaryKey string
-
-@description('JWT Secret')
-@secure()
-param jwtSecret string
-
-@description('PayPal Client ID')
-@secure()
-param paypalClientId string
-
-@description('PayPal App Secret')
-@secure()
-param paypalAppSecret string
-
 @description('PayPal API URL (sandbox or production)')
 param paypalApiUrl string
 
 @description('Web App URL for CORS')
 param webAppUrl string
+
+@description('Key Vault name for secret references')
+param keyVaultName string
 
 @description('Tags to apply to the resource')
 param tags object = {}
@@ -43,6 +30,9 @@ resource webApiApp 'Microsoft.Web/sites@2024-04-01' = {
   name: name
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   kind: 'app,linux'
   properties: {
     serverFarmId: appServicePlanId
@@ -93,7 +83,7 @@ resource webApiApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'MONGODB_PASSWORD'
-          value: cosmosDbPrimaryKey
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=MONGODB_PASSWORD)'
         }
         {
           name: 'MONGODB_DB_NAME'
@@ -105,15 +95,15 @@ resource webApiApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'JWT_SECRET'
-          value: jwtSecret
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=JWT_SECRET)'
         }
         {
           name: 'PAYPAL_CLIENT_ID'
-          value: paypalClientId
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=PAYPAL_CLIENT_ID)'
         }
         {
           name: 'PAYPAL_APP_SECRET'
-          value: paypalAppSecret
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=PAYPAL_APP_SECRET)'
         }
         {
           name: 'PAYPAL_API_URL'
@@ -172,3 +162,6 @@ output defaultHostName string = webApiApp.properties.defaultHostName
 
 @description('Web API possible outbound IP addresses')
 output possibleOutboundIpAddresses string = webApiApp.properties.possibleOutboundIpAddresses
+
+@description('Web API App Service principal ID')
+output principalId string = webApiApp.identity.principalId

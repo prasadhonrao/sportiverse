@@ -23,20 +23,8 @@ param nodeVersion string = '22-lts'
 @description('Enable zone redundancy for Cosmos DB')
 param enableZoneRedundancy bool = false
 
-@description('PayPal Client ID for payment processing')
-@secure()
-param paypalClientId string
-
-@description('PayPal App Secret for payment processing')
-@secure()
-param paypalAppSecret string
-
 @description('PayPal API URL (sandbox or production)')
 param paypalApiUrl string = 'https://api-m.sandbox.paypal.com'
-
-@description('JWT Secret for authentication')
-@secure()
-param jwtSecret string
 
 // Variables
 var resourceToken = toLower(uniqueString(subscription().id, resourceGroupName, location))
@@ -69,10 +57,7 @@ module resourceGroup 'modules/resource-group/resourceGroup.bicep' = {
     appServicePlanSku: appServicePlanSku
     nodeVersion: nodeVersion
     enableZoneRedundancy: enableZoneRedundancy
-    paypalClientId: paypalClientId
-    paypalAppSecret: paypalAppSecret
     paypalApiUrl: paypalApiUrl
-    jwtSecret: jwtSecret
     tags: tags
   }
 }
@@ -96,3 +81,15 @@ output resourceGroupName string = rg.name
 
 @description('Resource Token')
 output resourceToken string = resourceToken
+
+@description('Key Vault Name')
+output keyVaultName string = resourceGroup.outputs.keyVaultName
+
+@description('Key Vault URI')
+output keyVaultUri string = resourceGroup.outputs.keyVaultUri
+
+@description('Web API Principal ID')
+output webApiPrincipalId string = resourceGroup.outputs.webApiPrincipalId
+
+@description('Web App Principal ID')
+output webAppPrincipalId string = resourceGroup.outputs.webAppPrincipalId

@@ -9,8 +9,8 @@ param appServicePlanSku = 'B1'
 param nodeVersion = '22-lts'
 param enableZoneRedundancy = false
 
-// Secure parameters - these should be provided at deployment time
-param paypalClientId = readEnvironmentVariable('PAYPAL_CLIENT_ID', 'your-paypal-client-id-here')
-param paypalAppSecret = readEnvironmentVariable('PAYPAL_APP_SECRET', 'your-paypal-app-secret-here')
+// PayPal API configuration (non-sensitive)
 param paypalApiUrl = readEnvironmentVariable('PAYPAL_API_URL', 'https://api-m.sandbox.paypal.com')
-param jwtSecret = readEnvironmentVariable('JWT_SECRET', 'your-jwt-secret-here')
+
+// Note: Sensitive values (JWT_SECRET, PAYPAL_CLIENT_ID, PAYPAL_APP_SECRET, MONGODB_PASSWORD) 
+// are now stored in Azure Key Vault and referenced via app settings
