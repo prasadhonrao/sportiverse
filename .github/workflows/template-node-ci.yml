@@ -147,11 +147,18 @@ jobs:
 
           echo "✅ Build completed successfully"
 
+      - name: Prepare Artifact Name
+        id: artifact-name
+        run: |
+          # Sanitize the working directory path for artifact name
+          SANITIZED_NAME=$(echo "${{ inputs.working-directory }}" | sed 's|/|-|g')
+          echo "name=${SANITIZED_NAME}-build-${{ github.sha }}" >> $GITHUB_OUTPUT
+
       - name: Upload Build Artifact
         id: upload-artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.working-directory }}-build-${{ github.sha }}
+          name: ${{ steps.artifact-name.outputs.name }}
           path: ${{ inputs.working-directory }}/deployment-package.zip
           retention-days: 30
 
