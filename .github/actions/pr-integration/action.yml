@@ -1,0 +1,265 @@
+name: 'Pull Request Integration'
+description: 'Manage pull request integration with comments, status checks, and auto-merge capabilities'
+author: 'Sportiverse Team'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+  pr-number:
+    description: 'Pull request number'
+    required: false
+    default: ${{ github.event.number }}
+  status:
+    description: 'CI status (success, failure, pending)'
+    required: true
+  ci-results:
+    description: 'CI results summary'
+    required: false
+  deployment-url:
+    description: 'Deployment URL for preview'
+    required: false
+  coverage-percentage:
+    description: 'Test coverage percentage'
+    required: false
+  auto-merge:
+    description: 'Enable auto-merge if conditions are met'
+    required: false
+    default: 'false'
+  required-approvals:
+    description: 'Number of required approvals for auto-merge'
+    required: false
+    default: '1'
+  update-existing-comment:
+    description: 'Update existing comment instead of creating new ones'
+    required: false
+    default: 'true'
+
+outputs:
+  comment-id:
+    description: 'ID of the created or updated comment'
+    value: ${{ steps.comment.outputs.comment-id }}
+  merge-eligible:
+    description: 'Whether PR is eligible for auto-merge'
+    value: ${{ steps.auto-merge-check.outputs.eligible }}
+  merge-status:
+    description: 'Auto-merge status'
+    value: ${{ steps.auto-merge.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate Inputs
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.pr-number }}" ]; then
+          echo "❌ PR number not provided and not running in PR context"
+          exit 1
+        fi
+        echo "🔍 Processing PR #${{ inputs.pr-number }}"
+
+    - name: Prepare Comment Content
+      id: comment-content
+      shell: bash
+      run: |
+        case "${{ inputs.status }}" in
+          "success")
+            ICON="✅"
+            STATUS_TEXT="**SUCCESS**"
+            ;;
+          "failure")
+            ICON="❌"
+            STATUS_TEXT="**FAILED**"
+            ;;
+          "pending")
+            ICON="⏳"
+            STATUS_TEXT="**PENDING**"
+            ;;
+          *)
+            ICON="🔵"
+            STATUS_TEXT="**${{ inputs.status }}**"
+            ;;
+        esac
+        
+        # Build comment content
+        COMMENT="## ${ICON} CI/CD Pipeline ${STATUS_TEXT}
+        
+        **Workflow:** ${{ github.workflow }}  
+        **Commit:** \`${{ github.sha }}\`  
+        **Branch:** \`${{ github.ref_name }}\`  
+        **Triggered by:** @${{ github.actor }}  
+        
+        "
+        
+        if [ -n "${{ inputs.ci-results }}" ]; then
+          COMMENT="${COMMENT}### 📊 CI Results
+        ${{ inputs.ci-results }}
+        
+        "
+        fi
+        
+        if [ -n "${{ inputs.coverage-percentage }}" ]; then
+          COMMENT="${COMMENT}### 📈 Test Coverage
+        **Coverage:** ${{ inputs.coverage-percentage }}%
+        
+        "
+        fi
+        
+        if [ -n "${{ inputs.deployment-url }}" ]; then
+          COMMENT="${COMMENT}### 🚀 Preview Deployment
+        **URL:** [${{ inputs.deployment-url }}](${{ inputs.deployment-url }})
+        
+        "
+        fi
+        
+        COMMENT="${COMMENT}### 🔗 Links
+        - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        - [View Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+        
+        ---
+        *Updated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*"
+        
+        # Use base64 to handle multiline content safely
+        echo "content=$(echo -n "$COMMENT" | base64 -w 0)" >> $GITHUB_OUTPUT
+
+    - name: Find Existing Comment
+      id: find-comment
+      if: inputs.update-existing-comment == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "🔍 Looking for existing CI/CD comment..."
+        
+        COMMENT_ID=$(gh api \
+          "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+          --jq '.[] | select(.body | startswith("## ")) | select(.body | contains("CI/CD Pipeline")) | .id' \
+          | head -n 1)
+        
+        if [ -n "$COMMENT_ID" ]; then
+          echo "Found existing comment: $COMMENT_ID"
+          echo "comment-id=$COMMENT_ID" >> $GITHUB_OUTPUT
+        else
+          echo "No existing comment found"
+          echo "comment-id=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create or Update Comment
+      id: comment
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        COMMENT_CONTENT=$(echo "${{ steps.comment-content.outputs.content }}" | base64 -d)
+        
+        if [ -n "${{ steps.find-comment.outputs.comment-id }}" ]; then
+          echo "📝 Updating existing comment..."
+          gh api \
+            "repos/${{ github.repository }}/issues/comments/${{ steps.find-comment.outputs.comment-id }}" \
+            -X PATCH \
+            -f body="$COMMENT_CONTENT"
+          echo "comment-id=${{ steps.find-comment.outputs.comment-id }}" >> $GITHUB_OUTPUT
+        else
+          echo "📝 Creating new comment..."
+          COMMENT_ID=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ inputs.pr-number }}/comments" \
+            -f body="$COMMENT_CONTENT" \
+            --jq '.id')
+          echo "comment-id=$COMMENT_ID" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update Status Check
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        case "${{ inputs.status }}" in
+          "success")
+            STATE="success"
+            DESCRIPTION="All checks passed"
+            ;;
+          "failure")
+            STATE="failure"
+            DESCRIPTION="One or more checks failed"
+            ;;
+          "pending")
+            STATE="pending"
+            DESCRIPTION="Checks in progress"
+            ;;
+          *)
+            STATE="pending"
+            DESCRIPTION="Status: ${{ inputs.status }}"
+            ;;
+        esac
+        
+        echo "📋 Updating status check: $STATE"
+        gh api \
+          "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+          -f state="$STATE" \
+          -f description="$DESCRIPTION" \
+          -f context="ci/sportiverse"
+
+    - name: Check Auto-merge Eligibility
+      id: auto-merge-check
+      if: inputs.auto-merge == 'true' && inputs.status == 'success'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "🤖 Checking auto-merge eligibility..."
+        
+        # Get PR details
+        PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}")
+        
+        # Check if PR is mergeable
+        MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
+        DRAFT=$(echo "$PR_DATA" | jq -r '.draft')
+        
+        # Check approvals
+        APPROVALS=$(gh api "repos/${{ github.repository }}/pulls/${{ inputs.pr-number }}/reviews" \
+          --jq '[.[] | select(.state == "APPROVED")] | length')
+        
+        echo "Mergeable: $MERGEABLE"
+        echo "Draft: $DRAFT"
+        echo "Approvals: $APPROVALS"
+        echo "Required: ${{ inputs.required-approvals }}"
+        
+        if [ "$MERGEABLE" = "true" ] && [ "$DRAFT" = "false" ] && [ "$APPROVALS" -ge "${{ inputs.required-approvals }}" ]; then
+          echo "eligible=true" >> $GITHUB_OUTPUT
+          echo "✅ PR is eligible for auto-merge"
+        else
+          echo "eligible=false" >> $GITHUB_OUTPUT
+          echo "❌ PR is not eligible for auto-merge"
+        fi
+
+    - name: Auto-merge PR
+      id: auto-merge
+      if: steps.auto-merge-check.outputs.eligible == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "🤖 Attempting auto-merge..."
+        
+        if gh pr merge "${{ inputs.pr-number }}" --auto --squash --repo "${{ github.repository }}"; then
+          echo "status=enabled" >> $GITHUB_OUTPUT
+          echo "✅ Auto-merge enabled successfully"
+        else
+          echo "status=failed" >> $GITHUB_OUTPUT
+          echo "❌ Failed to enable auto-merge"
+        fi
+
+    - name: Summary
+      shell: bash
+      run: |
+        echo "🔄 PR Integration Summary"
+        echo "========================"
+        echo "PR Number: #${{ inputs.pr-number }}"
+        echo "Status: ${{ inputs.status }}"
+        echo "Comment ID: ${{ steps.comment.outputs.comment-id }}"
+        echo "Auto-merge Eligible: ${{ steps.auto-merge-check.outputs.eligible || 'not-checked' }}"
+        echo "Auto-merge Status: ${{ steps.auto-merge.outputs.status || 'not-attempted' }}"
+
+branding:
+  icon: 'git-pull-request'
+  color: 'purple'

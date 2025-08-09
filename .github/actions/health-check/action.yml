@@ -1,0 +1,165 @@
+name: 'Application Health Check'
+description: 'Comprehensive health check for deployed applications with retry logic and detailed reporting'
+author: 'Sportiverse Team'
+
+inputs:
+  endpoint:
+    description: 'Health check endpoint URL'
+    required: true
+  expected-status:
+    description: 'Expected HTTP status code'
+    required: false
+    default: '200'
+  timeout-seconds:
+    description: 'Request timeout in seconds'
+    required: false
+    default: '30'
+  retry-attempts:
+    description: 'Number of retry attempts'
+    required: false
+    default: '5'
+  retry-delay:
+    description: 'Delay between retries in seconds'
+    required: false
+    default: '10'
+  check-response-body:
+    description: 'Check if response body contains specific text'
+    required: false
+  fail-on-error:
+    description: 'Fail the action if health check fails'
+    required: false
+    default: 'true'
+
+outputs:
+  status:
+    description: 'Health check status (healthy/unhealthy)'
+    value: ${{ steps.health-check.outputs.status }}
+  response-time:
+    description: 'Response time in milliseconds'
+    value: ${{ steps.health-check.outputs.response-time }}
+  status-code:
+    description: 'HTTP status code received'
+    value: ${{ steps.health-check.outputs.status-code }}
+  attempts-made:
+    description: 'Number of attempts made'
+    value: ${{ steps.health-check.outputs.attempts }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate Inputs
+      shell: bash
+      run: |
+        echo "🔍 Validating health check parameters..."
+        echo "Endpoint: ${{ inputs.endpoint }}"
+        echo "Expected Status: ${{ inputs.expected-status }}"
+        echo "Timeout: ${{ inputs.timeout-seconds }}s"
+        echo "Max Attempts: ${{ inputs.retry-attempts }}"
+        echo "Retry Delay: ${{ inputs.retry-delay }}s"
+
+    - name: Perform Health Check
+      id: health-check
+      shell: bash
+      run: |
+        ENDPOINT="${{ inputs.endpoint }}"
+        EXPECTED_STATUS="${{ inputs.expected-status }}"
+        TIMEOUT="${{ inputs.timeout-seconds }}"
+        MAX_ATTEMPTS="${{ inputs.retry-attempts }}"
+        RETRY_DELAY="${{ inputs.retry-delay }}"
+        CHECK_BODY="${{ inputs.check-response-body }}"
+        
+        echo "🏥 Starting health check for: ${ENDPOINT}"
+        
+        # Initialize variables
+        attempt=0
+        success=false
+        total_start_time=$(date +%s%3N)
+        
+        while [ $attempt -lt $MAX_ATTEMPTS ]; do
+          attempt=$((attempt + 1))
+          echo "📞 Attempt $attempt/$MAX_ATTEMPTS..."
+          
+          # Measure response time
+          start_time=$(date +%s%3N)
+          
+          # Perform the health check
+          response=$(curl -s -w "%{http_code}" --max-time $TIMEOUT "$ENDPOINT" || echo "000")
+          status_code="${response: -3}"
+          response_body="${response%???}"
+          
+          end_time=$(date +%s%3N)
+          response_time=$((end_time - start_time))
+          
+          echo "   Status Code: $status_code"
+          echo "   Response Time: ${response_time}ms"
+          
+          # Check status code
+          if [ "$status_code" = "$EXPECTED_STATUS" ]; then
+            echo "   ✅ Status code matches expected ($EXPECTED_STATUS)"
+            
+            # Check response body if specified
+            if [ -n "$CHECK_BODY" ]; then
+              if echo "$response_body" | grep -q "$CHECK_BODY"; then
+                echo "   ✅ Response body contains expected text: '$CHECK_BODY'"
+                success=true
+                break
+              else
+                echo "   ❌ Response body does not contain expected text: '$CHECK_BODY'"
+              fi
+            else
+              success=true
+              break
+            fi
+          else
+            echo "   ❌ Status code $status_code does not match expected $EXPECTED_STATUS"
+          fi
+          
+          if [ $attempt -lt $MAX_ATTEMPTS ]; then
+            echo "   ⏱️ Waiting ${RETRY_DELAY} seconds before retry..."
+            sleep $RETRY_DELAY
+          fi
+        done
+        
+        total_end_time=$(date +%s%3N)
+        total_time=$((total_end_time - total_start_time))
+        
+        # Set outputs
+        echo "attempts=$attempt" >> $GITHUB_OUTPUT
+        echo "status-code=$status_code" >> $GITHUB_OUTPUT
+        echo "response-time=$response_time" >> $GITHUB_OUTPUT
+        
+        if [ "$success" = true ]; then
+          echo "status=healthy" >> $GITHUB_OUTPUT
+          echo "✅ Health check PASSED after $attempt attempt(s)"
+          echo "⏱️ Total time: ${total_time}ms"
+        else
+          echo "status=unhealthy" >> $GITHUB_OUTPUT
+          echo "❌ Health check FAILED after $attempt attempt(s)"
+          echo "⏱️ Total time: ${total_time}ms"
+          
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit 1
+          fi
+        fi
+
+    - name: Health Check Summary
+      shell: bash
+      run: |
+        echo "🏥 Health Check Summary"
+        echo "======================"
+        echo "Endpoint: ${{ inputs.endpoint }}"
+        echo "Status: ${{ steps.health-check.outputs.status }}"
+        echo "Final Status Code: ${{ steps.health-check.outputs.status-code }}"
+        echo "Response Time: ${{ steps.health-check.outputs.response-time }}ms"
+        echo "Attempts Made: ${{ steps.health-check.outputs.attempts }}/${{ inputs.retry-attempts }}"
+        echo "Expected Status: ${{ inputs.expected-status }}"
+        
+        if [ "${{ steps.health-check.outputs.status }}" = "healthy" ]; then
+          echo "🎉 Application is healthy and responding correctly!"
+        else
+          echo "⚠️ Application health check failed - manual verification recommended"
+        fi
+
+branding:
+  icon: 'heart'
+  color: 'red'

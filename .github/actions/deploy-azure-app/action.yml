@@ -1,0 +1,150 @@
+name: 'Deploy to Azure App Service'
+description: 'Deploy Node.js applications to Azure App Service with environment management and health checks'
+author: 'Sportiverse Team'
+
+inputs:
+  environment:
+    description: 'Target environment (dev, staging, prod)'
+    required: true
+  component-type:
+    description: 'Type of component (api, web, function)'
+    required: true
+  artifact-name:
+    description: 'Name of the build artifact to deploy'
+    required: true
+  azure-credentials:
+    description: 'Azure service principal credentials (JSON)'
+    required: true
+  resource-group:
+    description: 'Azure resource group name'
+    required: false
+    default: 'rg-sportiverse'
+  app-name-prefix:
+    description: 'Prefix for app service name'
+    required: false
+    default: 'sportiverse'
+  slot-name:
+    description: 'Deployment slot name'
+    required: false
+    default: 'staging'
+  health-check-url:
+    description: 'Health check endpoint URL'
+    required: false
+  timeout-minutes:
+    description: 'Deployment timeout in minutes'
+    required: false
+    default: '10'
+
+outputs:
+  deployment-url:
+    description: 'URL of the deployed application'
+    value: ${{ steps.deploy.outputs.webapp-url }}
+  deployment-status:
+    description: 'Status of the deployment'
+    value: ${{ steps.deploy.outputs.deployment-status }}
+  health-check-result:
+    description: 'Result of the health check'
+    value: ${{ steps.health-check.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ./deployment
+
+    - name: Extract Deployment Package
+      shell: bash
+      run: |
+        echo "📦 Extracting deployment package..."
+        cd deployment
+        unzip -q deployment-package.zip -d app/
+        ls -la app/
+        echo "✅ Deployment package extracted"
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ inputs.azure-credentials }}
+
+    - name: Determine App Service Name
+      id: app-name
+      shell: bash
+      run: |
+        APP_NAME="${{ inputs.app-name-prefix }}-${{ inputs.component-type }}-${{ inputs.environment }}"
+        echo "name=${APP_NAME}" >> $GITHUB_OUTPUT
+        echo "🎯 Target App Service: ${APP_NAME}"
+
+    - name: Deploy to Azure App Service
+      id: deploy
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ steps.app-name.outputs.name }}
+        slot-name: ${{ inputs.slot-name }}
+        package: ./deployment/app
+        
+    - name: Extract Deployment URL
+      id: url
+      shell: bash
+      run: |
+        if [ "${{ inputs.slot-name }}" = "production" ]; then
+          DEPLOYMENT_URL="https://${{ steps.app-name.outputs.name }}.azurewebsites.net"
+        else
+          DEPLOYMENT_URL="https://${{ steps.app-name.outputs.name }}-${{ inputs.slot-name }}.azurewebsites.net"
+        fi
+        echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+        echo "🌐 Deployment URL: ${DEPLOYMENT_URL}"
+
+    - name: Wait for Deployment Warm-up
+      shell: bash
+      run: |
+        echo "⏱️ Waiting for application to warm up..."
+        sleep 30
+
+    - name: Perform Health Check
+      id: health-check
+      if: inputs.health-check-url != ''
+      shell: bash
+      run: |
+        HEALTH_URL="${{ inputs.health-check-url }}"
+        if [ -z "${HEALTH_URL}" ]; then
+          HEALTH_URL="${{ steps.url.outputs.url }}/health"
+        fi
+        
+        echo "🏥 Performing health check at: ${HEALTH_URL}"
+        
+        # Retry health check up to 5 times
+        for i in {1..5}; do
+          echo "Attempt $i/5..."
+          if curl -f -s --max-time 30 "${HEALTH_URL}" > /dev/null; then
+            echo "✅ Health check passed"
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "⚠️ Health check failed, retrying in 10 seconds..."
+            sleep 10
+          fi
+        done
+        
+        echo "❌ Health check failed after 5 attempts"
+        echo "status=unhealthy" >> $GITHUB_OUTPUT
+        exit 1
+
+    - name: Deployment Summary
+      shell: bash
+      run: |
+        echo "🎉 Deployment Summary"
+        echo "===================="
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Component: ${{ inputs.component-type }}"
+        echo "App Service: ${{ steps.app-name.outputs.name }}"
+        echo "Slot: ${{ inputs.slot-name }}"
+        echo "URL: ${{ steps.url.outputs.url }}"
+        echo "Artifact: ${{ inputs.artifact-name }}"
+        echo "Health Status: ${{ steps.health-check.outputs.status || 'not-checked' }}"
+
+branding:
+  icon: 'cloud'
+  color: 'blue'

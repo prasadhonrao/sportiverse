@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/webapi/**'
       - '.github/workflows/webapi-ci.yml'
-      - '.github/workflows/template-node-ci.yml'
+      - '.github/actions/**'
     branches:
       - develop
       - 'feature/**'
@@ -15,7 +15,7 @@ on:
     paths:
       - 'src/webapi/**'
       - '.github/workflows/webapi-ci.yml'
-      - '.github/workflows/template-node-ci.yml'
+      - '.github/actions/**'
     branches:
       - main
       - develop
@@ -26,74 +26,101 @@ on:
         required: false
         default: false
         type: boolean
-      cache_strategy:
-        description: 'npm cache strategy'
+      notify_on_success:
+        description: 'Send notification on success'
         required: false
-        default: 'use-cache'
-        type: choice
-        options:
-          - 'use-cache'
-          - 'refresh-cache'
-          - 'no-cache'
+        default: true
+        type: boolean
 
 env:
   NODE_VERSION: '22'
+  COMPONENT_NAME: 'WebAPI'
 
 permissions:
   actions: read
   contents: read
   security-events: write
-  pull-requests: write # For PR comments
-  checks: write # For check runs
+  pull-requests: write
+  checks: write
 
 jobs:
   # ============================================================================
-  # CONTINUOUS INTEGRATION PIPELINE
+  # CONTINUOUS INTEGRATION
   # ============================================================================
-
+  
   ci:
-    name: 🔍 Continuous Integration
-    uses: ./.github/workflows/template-node-ci.yml
-    with:
-      node-version: '22'
-      working-directory: 'src/webapi'
-      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
-      package-manager: 'npm'
-    secrets: inherit
+    name: 🔍 CI Pipeline
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.ci.outputs.artifact-name }}
+      quality-passed: ${{ steps.ci.outputs.quality-passed }}
+      test-results: ${{ steps.ci.outputs.test-results }}
+      coverage-percentage: ${{ steps.ci.outputs.coverage-percentage }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Node.js CI Pipeline
+        id: ci
+        uses: ./.github/actions/node-ci
+        with:
+          working-directory: 'src/webapi'
+          node-version: ${{ env.NODE_VERSION }}
+          skip-tests: ${{ github.event.inputs.skip_tests }}
+          package-manager: 'npm'
+          upload-coverage: 'true'
 
   # ============================================================================
-  # CI STATUS & NOTIFICATIONS (REUSABLE)
+  # PULL REQUEST INTEGRATION
   # ============================================================================
-
-  ci-status-notifications:
-    name: 📊 CI Status & Notifications
-    needs: ci
-    if: always()
-    uses: ./.github/workflows/template-ci-status-notifications.yml
-    with:
-      ci-result: ${{ needs.ci.outputs.quality-passed }}
-      test-results: ${{ needs.ci.outputs.test-results }}
-      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
-      component-name: 'WebAPI'
-      node-version: '22'
-      event-type: ${{ github.event_name }}
-      enable-security-report: true
-      critical-branch: 'develop'
-
-  # ============================================================================
-  # PULL REQUEST INTEGRATION (REUSABLE)
-  # ============================================================================
-
+  
   pr-integration:
-    name: 💬 PR Integration
+    name: � PR Integration
     needs: ci
     if: github.event_name == 'pull_request' && always()
-    uses: ./.github/workflows/template-pr-integration.yml
-    with:
-      ci-result: ${{ needs.ci.outputs.quality-passed }}
-      test-results: ${{ needs.ci.outputs.test-results }}
-      build-artifact: ${{ needs.ci.outputs.build-artifact-name }}
-      component-name: 'WebAPI'
-      node-version: '22'
-      health-endpoint: '/status'
-      component-description: 'RESTful API service for Sportiverse e-commerce platform'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Update Pull Request
+        uses: ./.github/actions/pr-integration
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ needs.ci.outputs.quality-passed == 'true' && 'success' || 'failure' }}
+          ci-results: |
+            **🔍 Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
+            **🧪 Tests:** ${{ needs.ci.outputs.test-results }}
+            **📊 Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
+          coverage-percentage: ${{ needs.ci.outputs.coverage-percentage }}
+          auto-merge: 'false'
+          update-existing-comment: 'true'
+
+  # ============================================================================
+  # NOTIFICATIONS
+  # ============================================================================
+  
+  notify:
+    name: � Notifications
+    needs: ci
+    if: always() && (needs.ci.outputs.quality-passed != 'true' || github.event.inputs.notify_on_success == 'true')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send Notifications
+        uses: ./.github/actions/notify
+        with:
+          status: ${{ needs.ci.outputs.quality-passed == 'true' && 'success' || 'failure' }}
+          title: '${{ env.COMPONENT_NAME }} CI Pipeline'
+          message: |
+            Pipeline completed for ${{ env.COMPONENT_NAME }} on branch `${{ github.ref_name }}`
+            
+            **Results:**
+            - Quality Gates: ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
+            - Tests: ${{ needs.ci.outputs.test-results }}
+            - Coverage: ${{ needs.ci.outputs.coverage-percentage }}%
+            - Artifact: ${{ needs.ci.outputs.artifact-name }}
+          workflow-name: ${{ github.workflow }}
+          component: ${{ env.COMPONENT_NAME }}
+          include-details: 'true'
+          # slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
+          # teams-webhook: ${{ secrets.TEAMS_WEBHOOK }}
