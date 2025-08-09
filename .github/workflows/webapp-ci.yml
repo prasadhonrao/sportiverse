@@ -47,16 +47,16 @@ jobs:
   # ============================================================================
   # CONTINUOUS INTEGRATION
   # ============================================================================
-
+  
   ci:
-    name: ğŸ” CI Pipeline
+    name: í´ CI Pipeline
     runs-on: ubuntu-latest
     outputs:
       artifact-name: ${{ steps.ci.outputs.artifact-name }}
       quality-passed: ${{ steps.ci.outputs.quality-passed }}
       test-results: ${{ steps.ci.outputs.test-results }}
       coverage-percentage: ${{ steps.ci.outputs.coverage-percentage }}
-
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -74,23 +74,26 @@ jobs:
   # ============================================================================
   # PULL REQUEST INTEGRATION
   # ============================================================================
-
+  
   pr-integration:
-    name: ï¿½ PR Integration
+    name: í²¬ PR Integration
     needs: ci
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
-
+    
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Update Pull Request
         uses: ./.github/actions/pr-integration
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ needs.ci.outputs.quality-passed == 'true' && 'success' || 'failure' }}
           ci-results: |
-            **ğŸ” Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && 'âœ… Passed' || 'âŒ Failed' }}
-            **ğŸ§ª Tests:** ${{ needs.ci.outputs.test-results }}
-            **ğŸ“Š Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
+            **í´ Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && 'âœ… Passed' || 'âŒ Failed' }}
+            **í·ª Tests:** ${{ needs.ci.outputs.test-results }}
+            **í³Š Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
           coverage-percentage: ${{ needs.ci.outputs.coverage-percentage }}
           auto-merge: 'false'
           update-existing-comment: 'true'
@@ -98,14 +101,17 @@ jobs:
   # ============================================================================
   # NOTIFICATIONS
   # ============================================================================
-
+  
   notify:
-    name: ï¿½ Notifications
+    name: í³¢ Notifications
     needs: ci
     if: always() && (needs.ci.outputs.quality-passed != 'true' || github.event.inputs.notify_on_success == 'true')
     runs-on: ubuntu-latest
-
+    
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Send Notifications
         uses: ./.github/actions/notify
         with:
@@ -113,7 +119,7 @@ jobs:
           title: '${{ env.COMPONENT_NAME }} CI Pipeline'
           message: |
             Pipeline completed for ${{ env.COMPONENT_NAME }} on branch `${{ github.ref_name }}`
-
+            
             **Results:**
             - Quality Gates: ${{ needs.ci.outputs.quality-passed == 'true' && 'âœ… Passed' || 'âŒ Failed' }}
             - Tests: ${{ needs.ci.outputs.test-results }}
