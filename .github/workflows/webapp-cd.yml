@@ -1,24 +1,31 @@
-name: WebApp CI/CD Pipeline
+name: WebApp CD Pipeline
 
 on:
+  # Release-based deployment only
   push:
-    paths:
-      - 'src/webapp/**'
-      - '.github/workflows/webapp-cd.yml'
-      - '.github/actions/**'
-    branches:
-      - main
-      - develop
+    tags:
+      - 'webapp-v*'           # webapp-v1.0.0, webapp-v1.1.0-dev
+  
+  # Manual emergency deployment
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: 'Target environment for deployment'
         required: true
         default: 'dev'
         type: choice
         options:
           - 'dev'
-          - 'staging'
+          - 'prod'
+      release_tag:
+        description: 'Release tag to deploy (e.g., webapp-v1.0.0)'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip CI validation (emergency only)'
+        required: false
+        default: false
+        type: boolean
           - 'prod'
       skip_tests:
         description: 'Skip tests (emergency deployment)'
