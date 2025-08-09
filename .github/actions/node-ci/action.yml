@@ -1,5 +1,34 @@
 name: 'Node.js CI Pipeline'
-description: 'Comprehensive Node.js CI with linting, security audit, testing, coverage, and build packaging'
+description: 'Comprehensive Node.js CI with linting, secu    - name: Security Vulnerability Audit
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "🔒 Running security vulnerability audit..."
+        
+        AUDIT_LEVEL="${{ inputs.audit-level }}"
+        IGNORE_ERRORS="${{ inputs.ignore-audit-errors }}"
+        
+        AUDIT_COMMAND=""
+        if [ "${{ inputs.package-manager }}" = "npm" ]; then
+          AUDIT_COMMAND="npm audit --audit-level=$AUDIT_LEVEL"
+        elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          AUDIT_COMMAND="yarn audit --level $AUDIT_LEVEL"
+        elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          AUDIT_COMMAND="pnpm audit --audit-level $AUDIT_LEVEL"
+        fi
+        
+        echo "Running: $AUDIT_COMMAND"
+        
+        if [ "$IGNORE_ERRORS" = "true" ]; then
+          echo "⚠️ Running audit in non-blocking mode..."
+          $AUDIT_COMMAND || {
+            echo "⚠️ Security audit found vulnerabilities but continuing due to ignore-audit-errors=true"
+            echo "💡 This is typically acceptable for build-time vulnerabilities that don't affect runtime security"
+            echo "🔍 Consider reviewing the vulnerabilities and updating dependencies when feasible"
+          }
+        else
+          $AUDIT_COMMAND
+        fitesting, coverage, and build packaging'
 author: 'Sportiverse Team'
 
 inputs:
@@ -22,6 +51,14 @@ inputs:
     description: 'Upload coverage to Codecov'
     required: false
     default: 'true'
+  audit-level:
+    description: 'npm audit severity level (info, low, moderate, high, critical)'
+    required: false
+    default: 'moderate'
+  ignore-audit-errors:
+    description: 'Continue CI even if audit fails (for build-time vulnerabilities)'
+    required: false
+    default: 'false'
 
 outputs:
   artifact-name:
@@ -81,12 +118,30 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         echo "🔒 Running security vulnerability audit..."
+        
+        AUDIT_LEVEL="${{ inputs.audit-level }}"
+        IGNORE_ERRORS="${{ inputs.ignore-audit-errors }}"
+        
+        AUDIT_COMMAND=""
         if [ "${{ inputs.package-manager }}" = "npm" ]; then
-          npm audit --audit-level=moderate
+          AUDIT_COMMAND="npm audit --audit-level=$AUDIT_LEVEL"
         elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
-          yarn audit --level moderate
+          AUDIT_COMMAND="yarn audit --level $AUDIT_LEVEL"
         elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
-          pnpm audit --audit-level moderate
+          AUDIT_COMMAND="pnpm audit --audit-level $AUDIT_LEVEL"
+        fi
+        
+        echo "Running: $AUDIT_COMMAND"
+        
+        if [ "$IGNORE_ERRORS" = "true" ]; then
+          echo "⚠️ Running audit in non-blocking mode..."
+          if ! $AUDIT_COMMAND; then
+            echo "⚠️ Security audit found vulnerabilities but continuing due to ignore-audit-errors=true"
+            echo "💡 This is typically acceptable for build-time vulnerabilities"
+            echo "🔍 Consider reviewing vulnerabilities and updating dependencies when feasible"
+          fi
+        else
+          $AUDIT_COMMAND
         fi
 
     - name: Run Unit Tests

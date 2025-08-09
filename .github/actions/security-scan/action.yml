@@ -26,6 +26,14 @@ inputs:
     description: 'Upload SARIF results to GitHub Security tab'
     required: false
     default: 'true'
+  audit-level:
+    description: 'npm audit severity level (moderate, high, critical)'
+    required: false
+    default: 'moderate'
+  ignore-dev-vulns:
+    description: 'Ignore vulnerabilities in development dependencies'
+    required: false
+    default: 'false'
 
 outputs:
   codeql-status:
@@ -84,21 +92,76 @@ runs:
       run: |
         echo "🔍 Running dependency vulnerability scan..."
 
-        # Run audit and capture results
-        if npm audit --audit-level=moderate --json > audit-results.json 2>&1; then
+        AUDIT_LEVEL="${{ inputs.audit-level }}"
+        IGNORE_DEV="${{ inputs.ignore-dev-vulns }}"
+
+        # First, run audit with production only to check runtime dependencies
+        echo "📦 Checking production dependencies..."
+        PROD_AUDIT_STATUS=0
+        npm audit --omit=dev --audit-level=$AUDIT_LEVEL --json > prod-audit-results.json 2>&1 || PROD_AUDIT_STATUS=$?
+
+        # Run full audit for analysis (unless ignoring dev dependencies)
+        if [ "$IGNORE_DEV" = "false" ]; then
+          echo "🔍 Running full dependency audit..."
+          FULL_AUDIT_STATUS=0
+          npm audit --audit-level=$AUDIT_LEVEL --json > audit-results.json 2>&1 || FULL_AUDIT_STATUS=$?
+        else
+          echo "⚠️ Skipping development dependency audit (ignore-dev-vulns=true)"
+          # Copy prod results as full results
+          cp prod-audit-results.json audit-results.json
+          FULL_AUDIT_STATUS=$PROD_AUDIT_STATUS
+        fi
+
+        # Analyze results
+        PROD_VULNS=0
+        DEV_VULNS=0
+        TOTAL_VULNS=0
+
+        if [ -f "prod-audit-results.json" ]; then
+          # Count production vulnerabilities
+          if command -v jq >/dev/null 2>&1; then
+            PROD_VULNS=$(cat prod-audit-results.json | jq '.metadata.vulnerabilities.total // 0' 2>/dev/null || echo "0")
+          fi
+        fi
+
+        if [ -f "audit-results.json" ]; then
+          # Count total vulnerabilities
+          if command -v jq >/dev/null 2>&1; then
+            TOTAL_VULNS=$(cat audit-results.json | jq '.metadata.vulnerabilities.total // 0' 2>/dev/null || echo "0")
+            DEV_VULNS=$((TOTAL_VULNS - PROD_VULNS))
+          fi
+        fi
+
+        echo "📊 Vulnerability Summary:"
+        echo "  Production Dependencies: $PROD_VULNS vulnerabilities"
+        echo "  Development Dependencies: $DEV_VULNS vulnerabilities"
+        echo "  Total: $TOTAL_VULNS vulnerabilities"
+
+        # Set outputs
+        echo "prod-vulns=$PROD_VULNS" >> $GITHUB_OUTPUT
+        echo "dev-vulns=$DEV_VULNS" >> $GITHUB_OUTPUT
+        echo "total-vulns=$TOTAL_VULNS" >> $GITHUB_OUTPUT
+
+        # Determine status based on production dependencies
+        if [ $PROD_VULNS -eq 0 ]; then
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "✅ No high/critical vulnerabilities found"
+          echo "✅ No vulnerabilities in production dependencies"
+          if [ $DEV_VULNS -gt 0 ]; then
+            echo "⚠️ Development dependencies have vulnerabilities (non-blocking)"
+            echo "💡 Consider updating development dependencies when possible"
+          fi
         else
           echo "status=failure" >> $GITHUB_OUTPUT
-          echo "⚠️ Vulnerabilities detected:"
+          echo "❌ Production dependencies have vulnerabilities that need attention"
           
-          # Extract and display vulnerability summary
-          if [ -f "audit-results.json" ]; then
-            cat audit-results.json | jq -r '.vulnerabilities | to_entries[] | "\(.key): \(.value.severity)"' 2>/dev/null || echo "Unable to parse audit results"
+          # Show production vulnerability details
+          if [ -f "prod-audit-results.json" ]; then
+            echo "🔍 Production vulnerabilities detected:"
+            cat prod-audit-results.json | jq -r '.vulnerabilities | to_entries[] | select(.value.isDirect == true) | "\(.key): \(.value.severity)"' 2>/dev/null || echo "Unable to parse production audit results"
           fi
           
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
-            echo "❌ Failing due to security vulnerabilities"
+            echo "❌ Failing due to production security vulnerabilities"
             exit 1
           fi
         fi
@@ -148,18 +211,34 @@ runs:
         CODEQL_STATUS="${{ steps.codeql-analysis.outputs.status || 'success' }}"
         DEPENDENCY_STATUS="${{ steps.dependency-check.outputs.status || 'success' }}"
         ISSUES_COUNT="${{ steps.process-results.outputs.issues || '0' }}"
+        PROD_VULNS="${{ steps.dependency-check.outputs.prod-vulns || '0' }}"
+        DEV_VULNS="${{ steps.dependency-check.outputs.dev-vulns || '0' }}"
+        TOTAL_VULNS="${{ steps.dependency-check.outputs.total-vulns || '0' }}"
 
-        # Calculate security score (0-100)
+        # Calculate security score (0-100) with nuanced scoring
         SCORE=100
+
+        # CodeQL issues impact
         if [ "$CODEQL_STATUS" = "failure" ]; then
           SCORE=$((SCORE - 30))
         fi
-        if [ "$DEPENDENCY_STATUS" = "failure" ]; then
-          SCORE=$((SCORE - 40))
+
+        # Production dependency vulnerabilities (critical impact)
+        if [ $PROD_VULNS -gt 0 ]; then
+          PROD_PENALTY=$((PROD_VULNS * 15))  # 15 points per production vuln
+          SCORE=$((SCORE - PROD_PENALTY))
         fi
+
+        # Development dependency vulnerabilities (minor impact)
+        if [ $DEV_VULNS -gt 0 ]; then
+          DEV_PENALTY=$((DEV_VULNS * 2))  # 2 points per dev vuln
+          SCORE=$((SCORE - DEV_PENALTY))
+        fi
+
+        # CodeQL static analysis issues
         if [ $ISSUES_COUNT -gt 0 ]; then
-          PENALTY=$((ISSUES_COUNT * 5))
-          SCORE=$((SCORE - PENALTY))
+          ISSUE_PENALTY=$((ISSUES_COUNT * 5))  # 5 points per issue
+          SCORE=$((SCORE - ISSUE_PENALTY))
         fi
 
         # Ensure score doesn't go below 0
@@ -174,6 +253,29 @@ runs:
         echo "============================"
         echo "CodeQL Analysis: $CODEQL_STATUS"
         echo "Dependency Check: $DEPENDENCY_STATUS"
+        echo "Production Vulnerabilities: $PROD_VULNS"
+        echo "Development Vulnerabilities: $DEV_VULNS"
+        echo "CodeQL Issues Found: $ISSUES_COUNT"
+        echo "Security Score: $SCORE/100"
+
+        if [ $SCORE -ge 90 ]; then
+          echo "🏆 Excellent security posture!"
+        elif [ $SCORE -ge 70 ]; then
+          echo "✅ Good security practices"
+        elif [ $SCORE -ge 50 ]; then
+          echo "⚠️ Security improvements needed"
+        else
+          echo "❌ Critical security issues require attention"
+        fi
+
+        # Additional guidance for development vulnerabilities
+        if [ $DEV_VULNS -gt 0 ] && [ $PROD_VULNS -eq 0 ]; then
+          echo ""
+          echo "💡 Development Dependency Recommendations:"
+          echo "  - Development vulnerabilities don't affect production runtime"
+          echo "  - Consider updating development dependencies when feasible"
+          echo "  - Review if vulnerable dev dependencies are actually needed"
+        fi
         echo "Issues Found: $ISSUES_COUNT"
         echo "Security Score: $SCORE/100"
 

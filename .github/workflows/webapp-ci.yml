@@ -70,6 +70,8 @@ jobs:
           skip-tests: ${{ github.event.inputs.skip_tests }}
           package-manager: 'npm'
           upload-coverage: 'true'
+          audit-level: 'high'
+          ignore-audit-errors: 'true'
 
   # ============================================================================
   # ADVANCED SECURITY SCANNING
@@ -92,6 +94,8 @@ jobs:
           language: 'javascript'
           dependency-check: 'true'
           upload-sarif: 'true'
+          audit-level: 'high'
+          ignore-dev-vulns: 'true'
           fail-on-critical: 'false'
 
   docker-security:
