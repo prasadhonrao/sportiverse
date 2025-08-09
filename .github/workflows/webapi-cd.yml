@@ -281,7 +281,7 @@ jobs:
           echo "Performing WebAPI health check..."
           API_URL="${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
           echo "API URL: $API_URL"
-          
+
           # Basic health check for API status endpoint
           if curl -f "$API_URL/status" > /dev/null 2>&1; then
             echo "✅ API health check passed"
@@ -289,12 +289,12 @@ jobs:
             echo "❌ API health check failed"
             exit 1
           fi
-          
+
       - name: API Smoke Tests
         run: |
           echo "Running API smoke tests..."
           API_URL="${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
-          
+
           # Test basic API endpoints
           echo "Testing /api/products endpoint..."
           if curl -f "$API_URL/api/products" > /dev/null 2>&1; then
