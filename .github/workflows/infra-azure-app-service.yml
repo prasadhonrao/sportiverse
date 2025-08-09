@@ -125,19 +125,22 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
-          # First, validate the template
-          echo "🔍 Validating deployment template..."
+          # Use a different approach - compile to ARM and deploy ARM template
+          echo "🔨 Compiling Bicep to ARM template..."
+          az bicep build --file main.bicep --outfile compiled-template.json
+
+          echo "🔍 Validating ARM template..."
           az deployment sub validate \
             --location ${{ env.AZURE_REGION }} \
-            --template-file main.bicep \
+            --template-file compiled-template.json \
             --parameters environments/dev.parameters.json
 
-          echo "✅ Template validation passed, proceeding with deployment..."
+          echo "✅ ARM template validation passed, proceeding with deployment..."
 
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
-            --template-file main.bicep \
+            --template-file compiled-template.json \
             --parameters environments/dev.parameters.json \
             --output none
 
