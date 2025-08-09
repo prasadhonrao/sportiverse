@@ -49,7 +49,7 @@ jobs:
   # ============================================================================
 
   ci:
-    name: ��� CI Pipeline
+    name: 🔄 CI Pipeline
     runs-on: ubuntu-latest
     outputs:
       artifact-name: ${{ steps.ci.outputs.artifact-name }}
@@ -78,7 +78,7 @@ jobs:
   # ============================================================================
 
   security-scan:
-    name: ��� Security Analysis
+    name: 🛡️ Security Analysis
     runs-on: ubuntu-latest
     needs: ci
     if: always()
@@ -99,7 +99,7 @@ jobs:
           fail-on-critical: 'false'
 
   docker-security:
-    name: ��� Docker Security
+    name: 🐳 Docker Security
     runs-on: ubuntu-latest
     needs: ci
     if: success()
@@ -126,7 +126,7 @@ jobs:
   # ============================================================================
 
   pr-integration:
-    name: ��� PR Integration
+    name: 🔗 PR Integration
     needs: ci
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
@@ -141,9 +141,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ needs.ci.outputs.quality-passed == 'true' && 'success' || 'failure' }}
           ci-results: |
-            **��� Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
-            **��� Tests:** ${{ needs.ci.outputs.test-results }}
-            **��� Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
+            **📊 Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
+            **🧪 Tests:** ${{ needs.ci.outputs.test-results }}
+            **📈 Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
           coverage-percentage: ${{ needs.ci.outputs.coverage-percentage }}
           auto-merge: 'false'
           update-existing-comment: 'true'
@@ -153,7 +153,7 @@ jobs:
   # ============================================================================
 
   notify:
-    name: ��� Notifications
+    name: 📢 Notifications
     needs: ci
     if: always() && (needs.ci.outputs.quality-passed != 'true' || github.event.inputs.notify_on_success == 'true')
     runs-on: ubuntu-latest
