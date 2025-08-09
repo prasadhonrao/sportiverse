@@ -1,0 +1,225 @@
+name: Azure App Service Infrastructure (PowerShell)
+
+on:
+  push:
+    paths:
+      - 'infra/azure/app-service/**'
+      - '.github/workflows/infra-azure-app-service-powershell.yml'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy infrastructure to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - 'dev'
+          - 'prod'
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+      deploy_reason:
+        description: 'Reason for deployment (for tracking)'
+        required: false
+        default: 'Manual deployment'
+        type: string
+
+env:
+  AZURE_REGION: 'uksouth'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ============================================================================
+  # INFRASTRUCTURE VALIDATION
+  # ============================================================================
+
+  validate-bicep:
+    name: 🔍 Validate Bicep Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+
+      - name: Validate Bicep Templates
+        run: |
+          cd infra/azure/app-service/bicep
+
+          echo "🔍 Validating Bicep templates..."
+
+          # Show current configuration
+          echo "📋 Current configuration:"
+          echo "   Node.js version: $(grep -A1 'Node.js version' main.bicep | grep 'param nodeVersion' | cut -d"'" -f2)"
+          echo "   MongoDB version: $(grep -A1 'serverVersion' modules/database/cosmosDb.bicep | grep 'serverVersion' | cut -d"'" -f2)"
+
+          # Validate main template
+          az bicep build --file main.bicep --stdout > /dev/null
+          echo "✅ Main template validation passed"
+
+          # Validate all modules
+          for module in modules/*/*.bicep; do
+            if [ -f "$module" ]; then
+              az bicep build --file "$module" --stdout > /dev/null
+              echo "✅ Module $(basename $module) validation passed"
+            fi
+          done
+
+          echo "🎉 All Bicep templates are valid"
+
+  # ============================================================================
+  # ENVIRONMENT-SPECIFIC DEPLOYMENTS
+  # ============================================================================
+
+  deploy-infrastructure-dev:
+    name: 🏗️ Deploy Infrastructure (Development) - PowerShell
+    runs-on: ubuntu-latest
+    needs: validate-bicep
+    if: |
+      (github.ref == 'refs/heads/develop') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev') ||
+      (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[deploy-dev]'))
+    outputs:
+      api-name: ${{ steps.deploy.outputs.apiName }}
+      webapp-name: ${{ steps.deploy.outputs.webAppName }}
+      resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
+      cosmos-connection: ${{ steps.deploy.outputs.cosmosConnectionString }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Infrastructure with PowerShell
+        id: deploy
+        shell: pwsh
+        run: |
+          cd infra/azure/app-service/bicep
+
+          Write-Host "🚀 Deploying infrastructure to DEVELOPMENT environment using PowerShell..."
+          Write-Host "   Deployment reason: ${{ github.event.inputs.deploy_reason || 'Automated from code changes' }}"
+
+          # Deploy infrastructure using Azure PowerShell (bypassing Azure CLI issues)
+          $DeploymentName = "sportiverse-infra-dev-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+          Write-Host "📦 Starting deployment: $DeploymentName"
+
+          # Install and configure Azure PowerShell
+          Write-Host "🔧 Setting up Azure PowerShell..."
+          Install-Module -Name Az.Accounts -Force -Scope CurrentUser -Repository PSGallery
+          Install-Module -Name Az.Resources -Force -Scope CurrentUser -Repository PSGallery
+          Import-Module Az.Accounts
+          Import-Module Az.Resources
+
+          # Connect using service principal
+          Write-Host "🔑 Connecting to Azure..."
+          $ServicePrincipal = '${{ secrets.AZURE_SERVICE_PRINCIPAL }}' | ConvertFrom-Json
+          $SecurePassword = ConvertTo-SecureString $ServicePrincipal.clientSecret -AsPlainText -Force
+          $Credential = New-Object System.Management.Automation.PSCredential ($ServicePrincipal.clientId, $SecurePassword)
+
+          $Context = Connect-AzAccount -ServicePrincipal -Credential $Credential -TenantId $ServicePrincipal.tenantId
+          Write-Host "✅ Connected to Azure via PowerShell"
+          Write-Host "   Subscription: $($Context.Context.Subscription.Name)"
+          Write-Host "   Tenant: $($Context.Context.Tenant.Id)"
+
+          # Deploy infrastructure using native PowerShell
+          Write-Host "🏗️ Starting Azure deployment with PowerShell..."
+
+          try {
+            $DeploymentResult = New-AzSubscriptionDeployment `
+              -Name $DeploymentName `
+              -Location "${{ env.AZURE_REGION }}" `
+              -TemplateFile "main.bicep" `
+              -TemplateParameterFile "environments/dev.parameters.json" `
+              -Verbose
+
+            if ($DeploymentResult.ProvisioningState -eq "Succeeded") {
+              Write-Host "✅ Deployment successful!"
+              
+              # Extract outputs
+              $Outputs = $DeploymentResult.Outputs
+              
+              $ApiUrl = $Outputs.apiUrl.Value -replace 'https://', '' -replace '\.azurewebsites\.net', ''
+              $WebAppUrl = $Outputs.webAppUrl.Value -replace 'https://', '' -replace '\.azurewebsites\.net', ''
+              $ResourceGroup = $Outputs.resourceGroupName.Value
+              $CosmosConnection = if ($Outputs.cosmosDbConnectionString) { $Outputs.cosmosDbConnectionString.Value } else { "" }
+              
+              # Store in GitHub outputs
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "apiName=$ApiUrl"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "webAppName=$WebAppUrl"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "resourceGroupName=$ResourceGroup"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "cosmosConnectionString=$CosmosConnection"
+              
+              Write-Host "✅ Development infrastructure deployed successfully!"
+              Write-Host "🔗 API: $ApiUrl | Web: $WebAppUrl | RG: $ResourceGroup"
+            } else {
+              Write-Host "❌ Deployment failed with status: $($DeploymentResult.ProvisioningState)"
+              if ($DeploymentResult.Error) {
+                Write-Host "Error: $($DeploymentResult.Error | ConvertTo-Json -Depth 5)"
+              }
+              exit 1
+            }
+          } catch {
+            Write-Host "❌ PowerShell deployment failed with exception:"
+            Write-Host $_.Exception.Message
+            Write-Host "Full error:"
+            Write-Host ($_ | Out-String)
+            exit 1
+          }
+
+      - name: Store Infrastructure State
+        run: |
+          # Store infrastructure outputs in GitHub environment variables
+          # This allows application workflows to discover service names
+          cat >> $GITHUB_ENV << EOF
+          DEV_API_NAME=${{ steps.deploy.outputs.apiName }}
+          DEV_WEBAPP_NAME=${{ steps.deploy.outputs.webAppName }}
+          DEV_RESOURCE_GROUP=${{ steps.deploy.outputs.resourceGroupName }}
+          EOF
+
+  # ============================================================================
+  # NOTIFICATIONS
+  # ============================================================================
+
+  notify-infrastructure-success:
+    name: 📧 Infrastructure Success Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure-dev]
+    if: success() && always()
+    steps:
+      - name: Send Success Notification
+        run: |
+          echo "🎉 Infrastructure deployment completed successfully using PowerShell!"
+          echo "Timestamp: $(date)"
+          echo "Environment: ${{ github.event.inputs.environment || 'auto-detected' }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "📋 Deployment Summary:"
+          if [ "${{ needs.deploy-infrastructure-dev.result }}" = "success" ]; then
+            echo "✅ Development infrastructure deployed via PowerShell"
+            echo "✅ Bypassed Azure CLI 'content already consumed' error"
+          fi
+
+  notify-infrastructure-failure:
+    name: 🚨 Infrastructure Failure Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure-dev]
+    if: failure() && always()
+    steps:
+      - name: Send Failure Notification
+        run: |
+          echo "❌ Infrastructure deployment failed!"
+          echo "Timestamp: $(date)"
+          echo "Environment: ${{ github.event.inputs.environment || 'auto-detected' }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "🔗 Check workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
