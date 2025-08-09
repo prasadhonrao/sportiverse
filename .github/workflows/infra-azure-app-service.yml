@@ -125,6 +125,15 @@ jobs:
           DEPLOYMENT_NAME="sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)"
           echo "📦 Starting deployment: $DEPLOYMENT_NAME"
 
+          # First, validate the template
+          echo "🔍 Validating deployment template..."
+          az deployment sub validate \
+            --location ${{ env.AZURE_REGION }} \
+            --template-file main.bicep \
+            --parameters environments/dev.parameters.json
+
+          echo "✅ Template validation passed, proceeding with deployment..."
+
           az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "$DEPLOYMENT_NAME" \
