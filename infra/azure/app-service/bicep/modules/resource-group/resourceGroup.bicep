@@ -42,19 +42,20 @@ module appServicePlan '../app-service/appServicePlan.bicep' = {
   }
 }
 
+// Temporarily disabled Key Vault for troubleshooting
 // Module: Key Vault
-module keyVault '../security/keyVault.bicep' = {
-  name: 'keyVault-${resourceToken}'
-  params: {
-    name: '${appName}-kv-${environmentName}-${resourceToken}'
-    location: location
-    enablePurgeProtection: environmentName == 'prod' ? true : false  // Enable for production
-    tags: union(tags, {
-      'sportiverse-component': 'keyvault'
-      'sportiverse-service-type': 'secrets'
-    })
-  }
-}
+// module keyVault '../security/keyVault.bicep' = {
+//   name: 'keyVault-${resourceToken}'
+//   params: {
+//     name: '${appName}-kv-${environmentName}-${resourceToken}'
+//     location: location
+//     enablePurgeProtection: environmentName == 'prod' ? true : false  // Enable for production
+//     tags: union(tags, {
+//       'sportiverse-component': 'keyvault'
+//       'sportiverse-service-type': 'secrets'
+//     })
+//   }
+// }
 
 // Module: Cosmos DB
 module cosmosDb '../database/cosmosDb.bicep' = {
@@ -98,7 +99,8 @@ module webApi '../app-service/webApi.bicep' = {
     cosmosDbAccountName: cosmosDb.outputs.accountName
     paypalApiUrl: paypalApiUrl
     webAppUrl: webApp.outputs.defaultHostName
-    keyVaultName: keyVault.outputs.name
+    // Temporarily use dummy Key Vault name
+    keyVaultName: 'dummy-kv-name'
     tags: union(tags, {
       'sportiverse-component': 'api'
       'sportiverse-service-type': 'webapi'
@@ -120,27 +122,28 @@ module webAppUpdate '../app-service/webApp.bicep' = {
 }
 
 // Role assignments for Key Vault access
-var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+// Temporarily disabled Key Vault role assignments
+// var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
 
 // Grant WebAPI access to Key Vault
-resource webApiKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.name, webApi.name, keyVaultSecretsUserRoleId)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
-    principalId: webApi.outputs.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// resource webApiKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+//   name: guid(keyVault.name, webApi.name, keyVaultSecretsUserRoleId)
+//   properties: {
+//     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+//     principalId: webApi.outputs.principalId
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 // Grant WebApp access to Key Vault (if needed for runtime config)
-resource webAppKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.name, webAppUpdate.name, keyVaultSecretsUserRoleId)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
-    principalId: webAppUpdate.outputs.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// resource webAppKeyVaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+//   name: guid(keyVault.name, webAppUpdate.name, keyVaultSecretsUserRoleId)
+//   properties: {
+//     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+//     principalId: webAppUpdate.outputs.principalId
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 // Outputs
 @description('Web App URL')
@@ -156,11 +159,12 @@ output cosmosDbAccountName string = cosmosDb.outputs.accountName
 @secure()
 output cosmosDbConnectionString string = cosmosDb.outputs.primaryConnectionString
 
-@description('Key Vault Name')
-output keyVaultName string = keyVault.outputs.name
+// Temporarily disabled Key Vault outputs
+// @description('Key Vault Name')
+// output keyVaultName string = keyVault.outputs.name
 
-@description('Key Vault URI')
-output keyVaultUri string = keyVault.outputs.vaultUri
+// @description('Key Vault URI')
+// output keyVaultUri string = keyVault.outputs.vaultUri
 
 @description('Web API Principal ID')
 output webApiPrincipalId string = webApi.outputs.principalId
