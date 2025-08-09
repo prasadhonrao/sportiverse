@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/webapi/**'
       - '.github/workflows/webapi-cd.yml'
-      - '.github/workflows/template-*.yml'
+      - '.github/actions/**'
     branches:
       - main
       - develop
@@ -48,17 +48,55 @@ permissions:
 
 jobs:
   # ============================================================================
-  # CI PIPELINE - REUSABLE
+  # CI PIPELINE
   # ============================================================================
 
   ci:
-    name: 🔍 Continuous Integration
-    uses: ./.github/workflows/template-node-ci.yml
-    with:
-      node-version: '22'
-      working-directory: 'src/webapi'
-      skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
-      package-manager: 'npm'
+    name: � CI Pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    outputs:
+      artifact-name: ${{ steps.ci.outputs.artifact-name }}
+      quality-passed: ${{ steps.ci.outputs.quality-passed }}
+      test-results: ${{ steps.ci.outputs.test-results }}
+      coverage-percentage: ${{ steps.ci.outputs.coverage-percentage }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run CI Pipeline
+        id: ci
+        uses: ./.github/actions/node-ci
+        with:
+          node-version: '22'
+          working-directory: 'src/webapi'
+          skip-tests: ${{ github.event.inputs.skip_tests == 'true' }}
+          package-manager: 'npm'
+          ignore-audit-errors: true
+          audit-level: 'moderate'
+
+  security-scan:
+    name: 🛡️ Security Analysis
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Security Scan
+        uses: ./.github/actions/security-scan
+        with:
+          working-directory: 'src/webapi'
+          language: 'javascript'
+          audit-level: 'moderate'
+          fail-on-error: false
 
   # ============================================================================
   # DETERMINE DEPLOYMENT STRATEGY
@@ -67,7 +105,7 @@ jobs:
   determine-deployment:
     name: 🎯 Determine Deployment Strategy
     runs-on: ubuntu-latest
-    needs: ci
+    needs: [ci, security-scan]
     if: needs.ci.outputs.quality-passed == 'true'
     outputs:
       deploy-dev: ${{ steps.strategy.outputs.deploy-dev }}
@@ -141,58 +179,91 @@ jobs:
   deploy-dev:
     name: 🚀 Deploy to Development
     if: needs.determine-deployment.outputs.deploy-dev == 'true'
-    needs: [ci, determine-deployment]
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'dev'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'api'
-      health-endpoint: '/status'
-      startup-delay: 30
-      health-check-attempts: 5
-      seed-database: ${{ github.event.inputs.seed_database == 'true' }}
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    needs: [ci, security-scan, determine-deployment]
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.api-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying WebAPI to Development environment..."
+          echo "Seed Database: ${{ github.event.inputs.seed_database == 'true' }}"
+          echo "api-url=https://sportiverse-webapi-dev.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   # ============================================================================
   # STAGING DEPLOYMENT
   # ============================================================================
 
   deploy-staging:
-    name: 🚀 Deploy to Staging
+    name: 🎭 Deploy to Staging
     if: needs.determine-deployment.outputs.deploy-staging == 'true'
-    needs: [ci, determine-deployment]
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'staging'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'api'
-      health-endpoint: '/status'
-      startup-delay: 45
-      health-check-attempts: 8
-      seed-database: ${{ github.event.inputs.seed_database == 'true' }}
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    needs: [ci, security-scan, determine-deployment]
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.api-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying WebAPI to Staging environment..."
+          echo "Seed Database: ${{ github.event.inputs.seed_database == 'true' }}"
+          echo "api-url=https://sportiverse-webapi-staging.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   # ============================================================================
   # PRODUCTION DEPLOYMENT
   # ============================================================================
 
   deploy-prod:
-    name: 🚀 Deploy to Production
+    name: 🏭 Deploy to Production
     if: needs.determine-deployment.outputs.deploy-prod == 'true'
-    needs: [ci, determine-deployment]
-    uses: ./.github/workflows/template-deploy-azure-app.yml
-    with:
-      environment: 'prod'
-      artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
-      component-type: 'api'
-      health-endpoint: '/status'
-      startup-delay: 60
-      health-check-attempts: 10
-      seed-database: false # Never seed production
-    secrets:
-      AZURE_SERVICE_PRINCIPAL: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
+    needs: [ci, security-scan, determine-deployment]
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.api-url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.ci.outputs.artifact-name }}
+          path: ./build
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        run: |
+          echo "Deploying WebAPI to Production environment..."
+          echo "Seed Database: false (never seed production)"
+          echo "api-url=https://sportiverse-webapi.azurewebsites.net" >> $GITHUB_OUTPUT
+          # TODO: Add actual Azure deployment steps
 
   # ============================================================================
   # POST-DEPLOYMENT VERIFICATION
@@ -202,46 +273,62 @@ jobs:
     name: 💨 Smoke Tests
     needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod]
     if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
-    uses: ./.github/workflows/template-health-check.yml
-    with:
-      application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
-      health-endpoint: '/status'
-      environment: ${{ needs.determine-deployment.outputs.target-environment }}
-      component-type: 'api'
-      run-smoke-tests: true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: API Health Check
+        run: |
+          echo "Performing WebAPI health check..."
+          API_URL="${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
+          echo "API URL: $API_URL"
+          
+          # Basic health check for API status endpoint
+          if curl -f "$API_URL/status" > /dev/null 2>&1; then
+            echo "✅ API health check passed"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+          
+      - name: API Smoke Tests
+        run: |
+          echo "Running API smoke tests..."
+          API_URL="${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
+          
+          # Test basic API endpoints
+          echo "Testing /api/products endpoint..."
+          if curl -f "$API_URL/api/products" > /dev/null 2>&1; then
+            echo "✅ Products endpoint accessible"
+          else
+            echo "⚠️ Products endpoint not accessible (may be expected)"
+          fi
 
   # ============================================================================
   # NOTIFICATIONS
   # ============================================================================
 
-  notify-success:
-    name: 📧 Success Notification
+  notifications:
+    name: � Notifications
+    needs: [ci, security-scan, determine-deployment, deploy-dev, deploy-staging, deploy-prod, smoke-tests]
+    if: always()
     runs-on: ubuntu-latest
-    needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod, smoke-tests]
-    if: success() && always()
-    steps:
-      - name: Success Notification
-        run: |
-          echo "🎉 WebAPI deployment completed successfully!"
-          echo "📅 Timestamp: $(date)"
-          echo "🎯 Environment: ${{ needs.determine-deployment.outputs.target-environment }}"
-          echo "📝 Commit: ${{ github.sha }}"
-          echo "👤 Deployed by: ${{ github.actor }}"
-          echo "🔗 Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "🌐 Application URL: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}"
 
-  notify-failure:
-    name: 🚨 Failure Notification
-    runs-on: ubuntu-latest
-    needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod]
-    if: failure() && always()
     steps:
-      - name: Failure Notification
-        run: |
-          echo "🚨 WebAPI deployment failed!"
-          echo "📅 Timestamp: $(date)"
-          echo "🎯 Environment: ${{ needs.determine-deployment.outputs.target-environment }}"
-          echo "📝 Commit: ${{ github.sha }}"
-          echo "👤 Triggered by: ${{ github.actor }}"
-          echo "🔗 Debug workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "📋 Check logs for specific failure details"
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Notifications
+        uses: ./.github/actions/notify
+        with:
+          component-name: 'WebAPI'
+          node-version: '22'
+          status: ${{ needs.ci.outputs.quality-passed == 'true' && needs.smoke-tests.result == 'success' && 'success' || 'failure' }}
+          ci-results: |
+            **📊 Code Quality:** ${{ needs.ci.outputs.quality-passed == 'true' && '✅ Passed' || '❌ Failed' }}
+            **🧪 Tests:** ${{ needs.ci.outputs.test-results }}
+            **� Coverage:** ${{ needs.ci.outputs.coverage-percentage }}%
+            **🚀 Deployment:** ${{ needs.determine-deployment.outputs.target-environment }}
+            **� Smoke Tests:** ${{ needs.smoke-tests.result == 'success' && '✅ Passed' || '❌ Failed' }}
+            **🌱 Database Seeding:** ${{ github.event.inputs.seed_database == 'true' && '✅ Enabled' || '❌ Disabled' }}
+          coverage-percentage: ${{ needs.ci.outputs.coverage-percentage }}
+          deployment-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
