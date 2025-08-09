@@ -107,6 +107,12 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_SERVICE_PRINCIPAL }}
 
+      - name: Verify Azure Authentication
+        run: |
+          echo "🔍 Verifying Azure authentication..."
+          az account show --query "{subscription:name, user:user.name, tenant:tenantId}" -o table
+          echo "✅ Authentication verified"
+
       - name: Deploy Infrastructure
         id: deploy
         run: |
