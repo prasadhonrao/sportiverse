@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/webapp/**'
       - '.github/workflows/webapp-cd.yml'
-      - '.github/workflows/_templates/**'
+      - '.github/workflows/template-*.yml'
     branches:
       - main
       - develop
@@ -117,7 +117,7 @@ jobs:
     name: 🔍 Continuous Integration
     needs: branch-strategy
     if: needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/_templates/node-ci.yml
+    uses: ./.github/workflows/template-node-ci.yml
     with:
       node-version: '22'
       working-directory: 'src/webapp'
@@ -133,7 +133,7 @@ jobs:
     name: 🚀 Deploy to Development
     needs: [branch-strategy, ci]
     if: needs.branch-strategy.outputs.target-environment == 'dev' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'dev'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -149,7 +149,7 @@ jobs:
     name: 🎭 Deploy to Staging
     needs: [branch-strategy, ci]
     if: needs.branch-strategy.outputs.target-environment == 'staging' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'staging'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -165,7 +165,7 @@ jobs:
     name: 🏭 Deploy to Production
     needs: [branch-strategy, ci]
     if: needs.branch-strategy.outputs.target-environment == 'prod' && needs.ci.outputs.quality-passed == 'true'
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'prod'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -185,7 +185,7 @@ jobs:
     name: 🏥 Health Check
     needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod]
     if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
-    uses: ./.github/workflows/_templates/health-check.yml
+    uses: ./.github/workflows/template-health-check.yml
     with:
       application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
       environment: ${{ needs.branch-strategy.outputs.target-environment }}
@@ -201,7 +201,7 @@ jobs:
     name: � CI Status & Notifications
     needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
     if: always() && needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/_templates/ci-status-notifications.yml
+    uses: ./.github/workflows/template-ci-status-notifications.yml
     with:
       ci-result: ${{ needs.ci.outputs.quality-passed }}
       test-results: ${{ needs.ci.outputs.test-results }}
@@ -220,7 +220,7 @@ jobs:
     name: � PR Integration
     needs: [branch-strategy, ci, deploy-dev, deploy-staging, deploy-prod, health-check]
     if: github.event_name == 'pull_request' && always() && needs.branch-strategy.outputs.should-deploy == 'true'
-    uses: ./.github/workflows/_templates/pr-integration.yml
+    uses: ./.github/workflows/template-pr-integration.yml
     with:
       ci-result: ${{ needs.ci.outputs.quality-passed }}
       test-results: ${{ needs.ci.outputs.test-results }}

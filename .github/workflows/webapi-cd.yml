@@ -5,7 +5,7 @@ on:
     paths:
       - 'src/webapi/**'
       - '.github/workflows/webapi-cd.yml'
-      - '.github/workflows/_templates/**'
+      - '.github/workflows/template-*.yml'
     branches:
       - main
       - develop
@@ -53,7 +53,7 @@ jobs:
 
   ci:
     name: 🔍 Continuous Integration
-    uses: ./.github/workflows/_templates/node-ci.yml
+    uses: ./.github/workflows/template-node-ci.yml
     with:
       node-version: '22'
       working-directory: 'src/webapi'
@@ -142,7 +142,7 @@ jobs:
     name: 🚀 Deploy to Development
     if: needs.determine-deployment.outputs.deploy-dev == 'true'
     needs: [ci, determine-deployment]
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'dev'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -162,7 +162,7 @@ jobs:
     name: 🚀 Deploy to Staging
     if: needs.determine-deployment.outputs.deploy-staging == 'true'
     needs: [ci, determine-deployment]
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'staging'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -182,7 +182,7 @@ jobs:
     name: 🚀 Deploy to Production
     if: needs.determine-deployment.outputs.deploy-prod == 'true'
     needs: [ci, determine-deployment]
-    uses: ./.github/workflows/_templates/deploy-azure-app.yml
+    uses: ./.github/workflows/template-deploy-azure-app.yml
     with:
       environment: 'prod'
       artifact-name: ${{ needs.ci.outputs.build-artifact-name }}
@@ -202,7 +202,7 @@ jobs:
     name: 💨 Smoke Tests
     needs: [determine-deployment, deploy-dev, deploy-staging, deploy-prod]
     if: always() && (needs.deploy-dev.result == 'success' || needs.deploy-staging.result == 'success' || needs.deploy-prod.result == 'success')
-    uses: ./.github/workflows/_templates/health-check.yml
+    uses: ./.github/workflows/template-health-check.yml
     with:
       application-url: ${{ needs.deploy-dev.outputs.deployment-url || needs.deploy-staging.outputs.deployment-url || needs.deploy-prod.outputs.deployment-url }}
       health-endpoint: '/status'
