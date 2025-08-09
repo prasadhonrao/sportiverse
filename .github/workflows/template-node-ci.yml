@@ -135,7 +135,7 @@ jobs:
 
           # Create deployment package
           echo "📦 Creating deployment package..."
-          zip -r ../deployment-package.zip . \
+          zip -r deployment-package.zip . \
             -x "node_modules/.cache/*" \
                "coverage/*" \
                "__tests__/*" \
@@ -152,7 +152,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.working-directory }}-build-${{ github.sha }}
-          path: ${{ inputs.working-directory }}/../deployment-package.zip
+          path: ${{ inputs.working-directory }}/deployment-package.zip
           retention-days: 30
 
       - name: Test Summary
