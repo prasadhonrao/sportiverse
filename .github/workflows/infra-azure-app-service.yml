@@ -119,21 +119,24 @@ jobs:
           echo "   - Deployment reason: ${{ github.event.inputs.deploy_reason || 'Automated from code changes' }}"
 
           # Deploy with development parameters
-          deployment_output=$(az deployment sub create \
+          echo "📦 Starting Azure deployment..."
+          az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "sportiverse-infra-dev-$(date +%Y%m%d-%H%M%S)" \
             --template-file main.bicep \
             --parameters environments/dev.parameters.json \
             --query "properties.outputs" \
-            --output json)
+            --output json > deployment_outputs.json
 
-          # Extract and set outputs
-          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
-          cosmos_connection=$(echo $deployment_output | jq -r '.cosmosDbConnectionString.value // empty')
-          keyvault_name=$(echo $deployment_output | jq -r '.keyVaultName.value')
-          keyvault_uri=$(echo $deployment_output | jq -r '.keyVaultUri.value')
+          echo "📋 Deployment completed, processing outputs..."
+
+          # Extract and set outputs from the saved file
+          api_name=$(jq -r '.apiUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          webapp_name=$(jq -r '.webAppUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          resource_group=$(jq -r '.resourceGroupName.value' deployment_outputs.json)
+          cosmos_connection=$(jq -r '.cosmosDbConnectionString.value // empty' deployment_outputs.json)
+          keyvault_name=$(jq -r '.keyVaultName.value' deployment_outputs.json)
+          keyvault_uri=$(jq -r '.keyVaultUri.value' deployment_outputs.json)
 
           # Store in GitHub outputs for other workflows
           echo "apiName=$api_name" >> $GITHUB_OUTPUT
@@ -188,18 +191,21 @@ jobs:
 
           echo "🚀 Deploying infrastructure to PRODUCTION environment..."
 
-          deployment_output=$(az deployment sub create \
+          echo "📦 Starting Azure deployment..."
+          az deployment sub create \
             --location ${{ env.AZURE_REGION }} \
             --name "sportiverse-infra-prod-$(date +%Y%m%d-%H%M%S)" \
             --template-file main.bicep \
             --parameters environments/prod.parameters.json \
             --query "properties.outputs" \
-            --output json)
+            --output json > deployment_outputs.json
 
-          # Extract outputs
-          api_name=$(echo $deployment_output | jq -r '.apiUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          webapp_name=$(echo $deployment_output | jq -r '.webAppUrl.value' | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
-          resource_group=$(echo $deployment_output | jq -r '.resourceGroupName.value')
+          echo "📋 Deployment completed, processing outputs..."
+
+          # Extract outputs from the saved file
+          api_name=$(jq -r '.apiUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          webapp_name=$(jq -r '.webAppUrl.value' deployment_outputs.json | sed 's|https://||' | sed 's|\.azurewebsites\.net||')
+          resource_group=$(jq -r '.resourceGroupName.value' deployment_outputs.json)
 
           echo "apiName=$api_name" >> $GITHUB_OUTPUT
           echo "webAppName=$webapp_name" >> $GITHUB_OUTPUT
