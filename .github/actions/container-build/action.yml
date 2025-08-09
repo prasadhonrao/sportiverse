@@ -1,0 +1,294 @@
+name: 'Container Build & Push'
+description: 'Comprehensive Docker container build, security scan, and multi-registry push with advanced features'
+author: 'Sportiverse Team'
+
+inputs:
+  source-path:
+    description: 'Path to source code directory containing Dockerfile'
+    required: true
+  dockerfile-path:
+    description: 'Path to Dockerfile (relative to source-path)'
+    required: false
+    default: 'Dockerfile'
+  image-name:
+    description: 'Docker image name (without tag)'
+    required: true
+  image-tag:
+    description: 'Docker image tag'
+    required: false
+    default: 'latest'
+  build-args:
+    description: 'Docker build arguments (key=value pairs, comma-separated)'
+    required: false
+  target:
+    description: 'Docker build target stage'
+    required: false
+  platforms:
+    description: 'Target platforms for multi-arch build'
+    required: false
+    default: 'linux/amd64'
+  registry:
+    description: 'Container registry (dockerhub, ghcr, acr)'
+    required: false
+    default: 'dockerhub'
+  registry-url:
+    description: 'Custom registry URL (if not using predefined registries)'
+    required: false
+  registry-username:
+    description: 'Registry username'
+    required: true
+  registry-password:
+    description: 'Registry password/token'
+    required: true
+  push-image:
+    description: 'Push image to registry'
+    required: false
+    default: 'true'
+  run-security-scan:
+    description: 'Run security scan on built image'
+    required: false
+    default: 'true'
+  security-fail-threshold:
+    description: 'Security scan fail threshold (CRITICAL, HIGH, MEDIUM)'
+    required: false
+    default: 'CRITICAL'
+  cache-from:
+    description: 'External cache sources'
+    required: false
+  cache-to:
+    description: 'Cache export destination'
+    required: false
+  labels:
+    description: 'Image labels (key=value pairs, comma-separated)'
+    required: false
+  provenance:
+    description: 'Generate provenance attestation'
+    required: false
+    default: 'true'
+  sbom:
+    description: 'Generate SBOM attestation'
+    required: false
+    default: 'true'
+
+outputs:
+  image-digest:
+    description: 'Built image digest'
+    value: ${{ steps.build.outputs.digest }}
+  image-full-name:
+    description: 'Full image name with registry and tag'
+    value: ${{ steps.prepare.outputs.full-image-name }}
+  image-size:
+    description: 'Image size in bytes'
+    value: ${{ steps.inspect.outputs.size }}
+  security-score:
+    description: 'Security scan score (0-100)'
+    value: ${{ steps.security-scan.outputs.score }}
+  build-duration:
+    description: 'Build duration in seconds'
+    value: ${{ steps.build-time.outputs.duration }}
+  pushed:
+    description: 'Whether image was pushed to registry'
+    value: ${{ steps.push.outputs.pushed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare Build Environment
+      id: prepare
+      shell: bash
+      run: |
+        echo "🐳 Preparing Docker build environment..."
+
+        # Determine registry URL and image name
+        case "${{ inputs.registry }}" in
+          "dockerhub")
+            REGISTRY_URL="docker.io"
+            FULL_IMAGE_NAME="${{ inputs.image-name }}:${{ inputs.image-tag }}"
+            ;;
+          "ghcr")
+            REGISTRY_URL="ghcr.io"
+            FULL_IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/${{ inputs.image-name }}:${{ inputs.image-tag }}"
+            ;;
+          "acr")
+            if [ -z "${{ inputs.registry-url }}" ]; then
+              echo "❌ registry-url required for ACR"
+              exit 1
+            fi
+            REGISTRY_URL="${{ inputs.registry-url }}"
+            FULL_IMAGE_NAME="${{ inputs.registry-url }}/${{ inputs.image-name }}:${{ inputs.image-tag }}"
+            ;;
+          *)
+            REGISTRY_URL="${{ inputs.registry-url }}"
+            FULL_IMAGE_NAME="${{ inputs.registry-url }}/${{ inputs.image-name }}:${{ inputs.image-tag }}"
+            ;;
+        esac
+
+        echo "registry-url=$REGISTRY_URL" >> $GITHUB_OUTPUT
+        echo "full-image-name=$FULL_IMAGE_NAME" >> $GITHUB_OUTPUT
+
+        # Prepare build args
+        BUILD_ARGS=""
+        if [ -n "${{ inputs.build-args }}" ]; then
+          IFS=',' read -ra ARGS <<< "${{ inputs.build-args }}"
+          for arg in "${ARGS[@]}"; do
+            BUILD_ARGS="$BUILD_ARGS --build-arg $arg"
+          done
+        fi
+        echo "build-args=$BUILD_ARGS" >> $GITHUB_OUTPUT
+
+        # Prepare labels
+        LABELS="--label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}"
+        LABELS="$LABELS --label org.opencontainers.image.revision=${{ github.sha }}"
+        LABELS="$LABELS --label org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        LABELS="$LABELS --label org.sportiverse.build.workflow=${{ github.workflow }}"
+        LABELS="$LABELS --label org.sportiverse.build.run-id=${{ github.run_id }}"
+
+        if [ -n "${{ inputs.labels }}" ]; then
+          IFS=',' read -ra CUSTOM_LABELS <<< "${{ inputs.labels }}"
+          for label in "${CUSTOM_LABELS[@]}"; do
+            LABELS="$LABELS --label $label"
+          done
+        fi
+        echo "labels=$LABELS" >> $GITHUB_OUTPUT
+
+        echo "📋 Build Configuration:"
+        echo "  Registry: $REGISTRY_URL"
+        echo "  Full Image: $FULL_IMAGE_NAME"
+        echo "  Source Path: ${{ inputs.source-path }}"
+        echo "  Dockerfile: ${{ inputs.dockerfile-path }}"
+        echo "  Platforms: ${{ inputs.platforms }}"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: ${{ inputs.platforms }}
+        driver-opts: |
+          network=host
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ steps.prepare.outputs.registry-url }}
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Start Build Timer
+      id: start-time
+      shell: bash
+      run: |
+        echo "start-time=$(date +%s)" >> $GITHUB_OUTPUT
+
+    - name: Build Docker Image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.source-path }}
+        file: ${{ inputs.source-path }}/${{ inputs.dockerfile-path }}
+        platforms: ${{ inputs.platforms }}
+        push: false
+        load: true
+        tags: ${{ steps.prepare.outputs.full-image-name }}
+        target: ${{ inputs.target }}
+        cache-from: ${{ inputs.cache-from }}
+        cache-to: ${{ inputs.cache-to }}
+        provenance: ${{ inputs.provenance }}
+        sbom: ${{ inputs.sbom }}
+        build-args: |
+          ${{ inputs.build-args }}
+        labels: |
+          ${{ steps.prepare.outputs.labels }}
+
+    - name: Calculate Build Time
+      id: build-time
+      shell: bash
+      run: |
+        START_TIME=${{ steps.start-time.outputs.start-time }}
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        echo "duration=$DURATION" >> $GITHUB_OUTPUT
+        echo "⏱️ Build completed in ${DURATION} seconds"
+
+    - name: Inspect Image
+      id: inspect
+      shell: bash
+      run: |
+        echo "🔍 Inspecting built image..."
+
+        IMAGE_SIZE=$(docker image inspect ${{ steps.prepare.outputs.full-image-name }} --format='{{.Size}}')
+        IMAGE_SIZE_MB=$((IMAGE_SIZE / 1024 / 1024))
+
+        echo "size=$IMAGE_SIZE" >> $GITHUB_OUTPUT
+        echo "size-mb=$IMAGE_SIZE_MB" >> $GITHUB_OUTPUT
+
+        echo "📊 Image Details:"
+        echo "  Size: ${IMAGE_SIZE_MB} MB"
+        echo "  Digest: ${{ steps.build.outputs.digest }}"
+
+        # Get layer information
+        docker history ${{ steps.prepare.outputs.full-image-name }} --format "table {{.CreatedBy}}\t{{.Size}}" --no-trunc
+
+    - name: Run Security Scan
+      id: security-scan
+      if: inputs.run-security-scan == 'true'
+      uses: ./.github/actions/docker-security
+      with:
+        image-ref: ${{ steps.prepare.outputs.full-image-name }}
+        dockerfile-path: ${{ inputs.source-path }}/${{ inputs.dockerfile-path }}
+        fail-on-severity: ${{ inputs.security-fail-threshold }}
+        upload-results: 'true'
+
+    - name: Push to Registry
+      id: push
+      if: inputs.push-image == 'true'
+      shell: bash
+      run: |
+        echo "📤 Pushing image to registry..."
+
+        if docker push ${{ steps.prepare.outputs.full-image-name }}; then
+          echo "pushed=true" >> $GITHUB_OUTPUT
+          echo "✅ Successfully pushed: ${{ steps.prepare.outputs.full-image-name }}"
+        else
+          echo "pushed=false" >> $GITHUB_OUTPUT
+          echo "❌ Failed to push image"
+          exit 1
+        fi
+
+    - name: Generate Container Summary
+      shell: bash
+      run: |
+        echo "🐳 Container Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "=========================" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Image** | \`${{ steps.prepare.outputs.full-image-name }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Digest** | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Size** | ${{ steps.inspect.outputs.size-mb }} MB |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Build Time** | ${{ steps.build-time.outputs.duration }} seconds |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Platforms** | ${{ inputs.platforms }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Registry** | ${{ steps.prepare.outputs.registry-url }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Pushed** | ${{ steps.push.outputs.pushed || 'false' }} |" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ inputs.run-security-scan }}" = "true" ]; then
+          echo "| **Security Score** | ${{ steps.security-scan.outputs.security-score }}/100 |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔧 Build Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **Source Path:** \`${{ inputs.source-path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Dockerfile:** \`${{ inputs.dockerfile-path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target:** \`${{ inputs.target || 'default' }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Security Scan:** ${{ inputs.run-security-scan }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Provenance:** ${{ inputs.provenance }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **SBOM:** ${{ inputs.sbom }}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Clean up Local Image
+      if: always()
+      shell: bash
+      run: |
+        echo "🧹 Cleaning up local image..."
+        docker rmi ${{ steps.prepare.outputs.full-image-name }} || true
+
+branding:
+  icon: 'package'
+  color: 'blue'
