@@ -26,6 +26,19 @@ param enableZoneRedundancy bool = false
 @description('PayPal API URL (sandbox or production)')
 param paypalApiUrl string = 'https://api-m.sandbox.paypal.com'
 
+// Secret parameters for Key Vault
+@secure()
+@description('PayPal Client ID for payment processing')
+param paypalClientId string
+
+@secure()
+@description('PayPal App Secret for payment processing')
+param paypalAppSecret string
+
+@secure()
+@description('JWT Secret for token signing')
+param jwtSecret string
+
 // Variables
 var resourceToken = toLower(uniqueString(subscription().id, resourceGroupName, location))
 var tags = {
@@ -58,6 +71,9 @@ module resourceGroup 'modules/resource-group/resourceGroup.bicep' = {
     nodeVersion: nodeVersion
     enableZoneRedundancy: enableZoneRedundancy
     paypalApiUrl: paypalApiUrl
+    paypalClientId: paypalClientId
+    paypalAppSecret: paypalAppSecret
+    jwtSecret: jwtSecret
     tags: tags
   }
 }
@@ -82,12 +98,11 @@ output resourceGroupName string = rg.name
 @description('Resource Token')
 output resourceToken string = resourceToken
 
-// Temporarily disabled Key Vault outputs for troubleshooting
-// @description('Key Vault Name')
-// output keyVaultName string = resourceGroup.outputs.keyVaultName
+@description('Key Vault Name')
+output keyVaultName string = resourceGroup.outputs.keyVaultName
 
-// @description('Key Vault URI')
-// output keyVaultUri string = resourceGroup.outputs.keyVaultUri
+@description('Key Vault URI')
+output keyVaultUri string = resourceGroup.outputs.keyVaultUri
 
 // @description('Web API Principal ID')
 // output webApiPrincipalId string = resourceGroup.outputs.webApiPrincipalId

@@ -25,6 +25,15 @@
     },
     "paypalApiUrl": {
       "value": "https://api-m.sandbox.paypal.com"
+    },
+    "paypalClientId": {
+      "value": "test-paypal-client-id-dev"
+    },
+    "paypalAppSecret": {
+      "value": "test-paypal-app-secret-dev"
+    },
+    "jwtSecret": {
+      "value": "test-jwt-secret-sportiverse-dev-2024"
     }
   }
 }

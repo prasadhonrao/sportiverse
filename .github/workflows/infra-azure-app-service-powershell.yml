@@ -95,6 +95,8 @@ jobs:
       webapp-name: ${{ steps.deploy.outputs.webAppName }}
       resource-group: ${{ steps.deploy.outputs.resourceGroupName }}
       cosmos-connection: ${{ steps.deploy.outputs.cosmosConnectionString }}
+      keyvault-name: ${{ steps.deploy.outputs.keyVaultName }}
+      keyvault-uri: ${{ steps.deploy.outputs.keyVaultUri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -151,15 +153,20 @@ jobs:
               $WebAppUrl = $Outputs.webAppUrl.Value -replace 'https://', '' -replace '\.azurewebsites\.net', ''
               $ResourceGroup = $Outputs.resourceGroupName.Value
               $CosmosConnection = if ($Outputs.cosmosDbConnectionString) { $Outputs.cosmosDbConnectionString.Value } else { "" }
+              $KeyVaultName = if ($Outputs.keyVaultName) { $Outputs.keyVaultName.Value } else { "" }
+              $KeyVaultUri = if ($Outputs.keyVaultUri) { $Outputs.keyVaultUri.Value } else { "" }
               
               # Store in GitHub outputs
               Add-Content -Path $env:GITHUB_OUTPUT -Value "apiName=$ApiUrl"
               Add-Content -Path $env:GITHUB_OUTPUT -Value "webAppName=$WebAppUrl"
               Add-Content -Path $env:GITHUB_OUTPUT -Value "resourceGroupName=$ResourceGroup"
               Add-Content -Path $env:GITHUB_OUTPUT -Value "cosmosConnectionString=$CosmosConnection"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "keyVaultName=$KeyVaultName"
+              Add-Content -Path $env:GITHUB_OUTPUT -Value "keyVaultUri=$KeyVaultUri"
               
               Write-Host "✅ Development infrastructure deployed successfully!"
               Write-Host "🔗 API: $ApiUrl | Web: $WebAppUrl | RG: $ResourceGroup"
+              Write-Host "🔐 Key Vault: $KeyVaultName | URI: $KeyVaultUri"
             } else {
               Write-Host "❌ Deployment failed with status: $($DeploymentResult.ProvisioningState)"
               if ($DeploymentResult.Error) {

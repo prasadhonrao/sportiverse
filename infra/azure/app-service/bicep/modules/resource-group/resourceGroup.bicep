@@ -28,6 +28,19 @@ param enableZoneRedundancy bool
 @description('PayPal API URL (sandbox or production)')
 param paypalApiUrl string
 
+// Secret parameters for Key Vault
+@secure()
+@description('PayPal Client ID for payment processing')
+param paypalClientId string
+
+@secure()
+@description('PayPal App Secret for payment processing')
+param paypalAppSecret string
+
+@secure()
+@description('JWT Secret for token signing')
+param jwtSecret string
+
 @description('Tags to apply to all resources')
 param tags object
 
@@ -42,20 +55,22 @@ module appServicePlan '../app-service/appServicePlan.bicep' = {
   }
 }
 
-// Temporarily disabled Key Vault for troubleshooting
 // Module: Key Vault
-// module keyVault '../security/keyVault.bicep' = {
-//   name: 'keyVault-${resourceToken}'
-//   params: {
-//     name: '${appName}-kv-${environmentName}-${resourceToken}'
-//     location: location
-//     enablePurgeProtection: environmentName == 'prod' ? true : false  // Enable for production
-//     tags: union(tags, {
-//       'sportiverse-component': 'keyvault'
-//       'sportiverse-service-type': 'secrets'
-//     })
-//   }
-// }
+module keyVault '../security/keyVault.bicep' = {
+  name: 'keyVault-${resourceToken}'
+  params: {
+    name: '${appName}-kv-${environmentName}-${resourceToken}'
+    location: location
+    enablePurgeProtection: environmentName == 'prod' ? true : false  // Enable for production
+    paypalClientId: paypalClientId
+    paypalAppSecret: paypalAppSecret
+    jwtSecret: jwtSecret
+    tags: union(tags, {
+      'sportiverse-component': 'keyvault'
+      'sportiverse-service-type': 'secrets'
+    })
+  }
+}
 
 // Module: Cosmos DB
 module cosmosDb '../database/cosmosDb.bicep' = {
@@ -159,12 +174,11 @@ output cosmosDbAccountName string = cosmosDb.outputs.accountName
 @secure()
 output cosmosDbConnectionString string = cosmosDb.outputs.primaryConnectionString
 
-// Temporarily disabled Key Vault outputs
-// @description('Key Vault Name')
-// output keyVaultName string = keyVault.outputs.name
+@description('Key Vault Name')
+output keyVaultName string = keyVault.outputs.name
 
-// @description('Key Vault URI')
-// output keyVaultUri string = keyVault.outputs.vaultUri
+@description('Key Vault URI')
+output keyVaultUri string = keyVault.outputs.vaultUri
 
 @description('Web API Principal ID')
 output webApiPrincipalId string = webApi.outputs.principalId
